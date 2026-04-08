@@ -1,0 +1,300 @@
+/* ============================================
+   📊 DASHBOARD ESTADÍSTICAS TIER 1 (INTEGRADO AL SPLIT-SCREEN)
+   ============================================ */
+
+.stats-dashboard {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  /* El dashboard se adapta al lienzo derecho que definimos en App.css */
+}
+
+.stats-content-scroll {
+  overflow-y: auto;
+  padding-bottom: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Efecto Glassmorphism (Cristal) */
+.ios-glass {
+  background: rgba(28, 28, 30, 0.6);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================
+   CABECERA
+   ============================================ */
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+}
+
+.header-info h2 { font-size: 1.4rem; font-weight: 700; margin: 0; color: #fff; }
+
+.stats-tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  padding: 4px;
+}
+
+.stats-tabs button {
+  background: none; border: none; color: #8e8e93; padding: 10px 16px; border-radius: 8px;
+  font-weight: 600; cursor: pointer; transition: all 0.2s;
+}
+
+.stats-tabs button.active { background: rgba(10, 132, 255, 0.2); color: #0a84ff; }
+
+/* ============================================
+   ESTADOS VACÍOS Y CARGA
+   ============================================ */
+.stats-empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; height: 100%; padding: 40px; color: #fff;
+}
+.empty-icon { font-size: 5rem; margin-bottom: 20px; filter: drop-shadow(0 0 20px rgba(10, 132, 255, 0.4)); animation: floatIcon 3s infinite ease-in-out; }
+@keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+.stats-empty-state h3 { font-size: 1.5rem; margin-bottom: 10px; }
+.stats-empty-state p { color: #8e8e93; max-width: 400px; line-height: 1.5; }
+
+.stats-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; color: #8e8e93; }
+.spinner-ios { width: 40px; height: 40px; border: 4px solid rgba(255, 255, 255, 0.1); border-top-color: #0a84ff; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-card { padding: 15px; background: rgba(244, 67, 54, 0.15); border-color: rgba(244, 67, 54, 0.3); color: #fff; text-align: center; }
+
+/* ============================================
+   TARJETAS DE MÉTRICAS (GRID)
+   ============================================ */
+.stats-tab-content { display: flex; flex-direction: column; gap: 20px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+.metric-card { padding: 20px; display: flex; flex-direction: column; align-items: center; text-align: center; transition: transform 0.2s; }
+.metric-card:hover { transform: translateY(-3px); border-color: rgba(255, 255, 255, 0.2); }
+.m-icon { font-size: 2rem; margin-bottom: 10px; }
+.m-value { font-size: 2.2rem; font-weight: 800; color: #fff; margin-bottom: 5px; }
+.m-label { font-size: 0.8rem; text-transform: uppercase; color: #8e8e93; font-weight: 600; letter-spacing: 1px; }
+
+/* ============================================
+   TENDENCIA Y COMPARATIVAS
+   ============================================ */
+.tendencia-card { padding: 20px; text-align: center; }
+.tendencia-card h3 { margin: 0 0 10px 0; font-size: 1.1rem; color: #fff; }
+.tendencia-valor { font-size: 2rem; font-weight: 800; margin-bottom: 5px; }
+.tendencia-card.positiva .tendencia-valor { color: #30d158; text-shadow: 0 0 15px rgba(48, 209, 88, 0.3); }
+.tendencia-card.negativa .tendencia-valor { color: #ff453a; text-shadow: 0 0 15px rgba(255, 69, 58, 0.3); }
+.tendencia-card p { color: #8e8e93; margin: 0; font-size: 0.9rem; }
+
+.comparativa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.comp-card { padding: 20px; text-align: center; }
+.comp-card h4 { margin: 0 0 10px 0; font-size: 1rem; color: #fff; }
+.c-score { font-size: 2.5rem; font-weight: 800; margin-bottom: 5px; }
+.comp-card.mejor { background: rgba(48, 209, 88, 0.05); border-color: rgba(48, 209, 88, 0.2); }
+.comp-card.mejor .c-score { color: #30d158; }
+.comp-card.peor { background: rgba(255, 214, 10, 0.05); border-color: rgba(255, 214, 10, 0.2); }
+.comp-card.peor .c-score { color: #ffd60a; }
+.comp-card p { margin: 0; color: #8e8e93; font-size: 0.9rem; }
+.comp-card .c-ppm { color: #fff; font-weight: 600; margin-top: 5px; }
+
+/* ============================================
+   HISTORIAL Y RANKING (LISTAS)
+   ============================================ */
+.history-section, .ranking-section { padding: 24px; }
+.history-section h3, .ranking-section h3 { font-size: 1.2rem; color: #fff; margin: 0 0 15px 0; font-weight: 700; }
+.history-list, .ranking-list { display: flex; flex-direction: column; gap: 10px; }
+
+/* Items compartidos */
+.history-item, .ranking-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 20px; background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.03);
+  transition: background 0.2s;
+}
+.history-item:hover, .ranking-item:hover { background: rgba(255, 255, 255, 0.08); border-color: rgba(255,255,255,0.1); }
+
+/* Fila Historial */
+.h-num { color: #8e8e93; font-weight: 700; width: 30px; }
+.h-date { flex: 1; color: #fff; font-size: 0.9rem; }
+.h-score { font-weight: 800; font-size: 1.1rem; width: 50px; text-align: right; }
+.h-ppm { color: #0a84ff; font-weight: 600; width: 70px; text-align: right; }
+.h-xp { color: #FFD700; font-weight: 700; width: 60px; text-align: right; }
+
+/* Fila Ranking */
+.ranking-item.top-3 { background: linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(0,0,0,0.3) 100%); border-left: 3px solid #FFD700; }
+.r-pos { font-size: 1.2rem; width: 40px; font-weight: 700; color: #8e8e93;}
+.r-name { flex: 1; font-weight: 600; color: #fff; font-size: 1rem; }
+.r-reads { color: #8e8e93; font-size: 0.85rem; width: 80px; text-align: right;}
+.r-avg { font-weight: 800; font-size: 1.1rem; width: 60px; text-align: right;}
+.r-xp { color: #FFD700; font-weight: 700; width: 80px; text-align: right;}
+
+/* ============================================
+   RESPONSIVO
+   ============================================ */
+@media (max-width: 768px) {
+  .stats-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+  .comparativa-grid { grid-template-columns: 1fr; }
+  .history-item { flex-wrap: wrap; gap: 10px; }
+  .h-date { min-width: 100%; order: -1; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .ranking-item { flex-wrap: wrap; gap: 10px;}
+  .r-name { min-width: 50%; }
+}
+
+/* ============================================
+   🗑️ BOTONES DE BORRADO (MODO LIMPIEZA)
+   ============================================ */
+
+.del-btn-mini {
+  background: rgba(255, 69, 58, 0.15);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  color: #ff453a;
+  border-radius: 8px;
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: all 0.2s;
+  margin-left: 10px;
+}
+
+.del-btn-mini:hover {
+  background: #ff453a;
+  color: #fff;
+  transform: scale(1.1);
+  box-shadow: 0 0 15px rgba(255, 69, 58, 0.4);
+}
+
+.del-btn-mini:active {
+  transform: scale(0.9);
+}
+
+/* ============================================
+   📅 GESTOR DE TRIMESTRES Y FILTROS
+   ============================================ */
+
+.ciclo-selector-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.ciclo-dropdown {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+.ciclo-dropdown option {
+  background: #1c1c1e;
+  color: #fff;
+}
+
+.btn-edit-ciclos {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.btn-edit-ciclos:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* Formulario Crear Ciclo */
+.ciclo-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ciclo-form input[type="text"] {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 10px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.date-inputs {
+  display: flex;
+  gap: 15px;
+}
+
+.date-inputs div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.date-inputs label {
+  font-size: 0.75rem;
+  color: #8e8e93;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.date-inputs input[type="date"] {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px;
+  border-radius: 8px;
+  color: #fff;
+  font-family: inherit;
+  color-scheme: dark;
+}
+
+.tc-btn.positive {
+  background: rgba(48, 209, 88, 0.15);
+  color: #30d158;
+  border: 1px solid rgba(48, 209, 88, 0.3);
+}
+
+.ciclos-lista-admin {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ciclo-item-admin {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #8e8e93;
+}
+
+.ciclo-item-admin button {
+  background: none; border: none; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;
+}
+.ciclo-item-admin button:hover { opacity: 1; transform: scale(1.1); }

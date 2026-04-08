@@ -1,0 +1,737 @@
+/* ============================================
+   🖥️ LAYOUT TIER 1: SPLIT SCREEN (PANTALLA DIVIDIDA)
+   ============================================ */
+
+.tier1-desktop-layout {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background-color: #000;
+  overflow: hidden;
+}
+
+/* Panel Izquierdo (Fijo - Menú iOS) */
+.layout-sidebar {
+  width: 420px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  height: 100vh;
+  overflow-y: auto;
+  background: #000;
+  z-index: 10;
+  box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+}
+
+/* Panel Derecho (Lienzo Dinámico de IA) */
+.layout-canvas {
+  flex: 1;
+  position: relative;
+  background: radial-gradient(circle at center, #16161e 0%, #050505 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow-y: auto;
+}
+
+/* Envoltura para que el Lector no explote la pantalla */
+.canvas-analyzer-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+/* ============================================
+   🍏 ESTILO iOS DARK MODE & GLASSMORPHISM
+   ============================================ */
+
+.ios-dark-container {
+  background-color: #000000;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  position: relative;
+}
+
+.ios-page {
+  padding: 0 20px 40px 20px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Dynamic Island (Notificación flotante) */
+.dynamic-island-notification {
+  position: fixed;
+  top: 20px;
+  left: 210px; 
+  transform: translateX(-50%);
+  background: #000000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(10, 132, 255, 0.15);
+  border-radius: 40px;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9999;
+}
+
+.di-icon {
+  font-size: 1.5rem;
+}
+
+.di-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.di-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+}
+
+.di-points {
+  font-size: 0.8rem;
+  color: #30d158;
+  font-weight: 500;
+}
+
+/* Header Superior de Navegación */
+.ios-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 0;
+  position: sticky;
+  top: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 100;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 20px;
+}
+
+.ios-header h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.ios-back-button {
+  background: none;
+  border: none;
+  color: #0a84ff;
+  font-size: 1.05rem;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.chevron {
+  font-size: 1.5rem;
+  line-height: 0;
+  margin-bottom: 2px;
+}
+
+/* Hero Section (Menú Principal) */
+.ios-hero-header {
+  text-align: center;
+  padding: 40px 0 30px 0;
+}
+
+.ios-icon-app {
+  font-size: 4rem;
+  margin-bottom: 15px;
+  filter: drop-shadow(0 10px 20px rgba(10, 132, 255, 0.3));
+}
+
+.ios-hero-header h1 {
+  font-size: 2.8rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff 0%, #0a84ff 100%);
+-webkit-background-clip: text;
+background-clip: text;          
+-webkit-text-fill-color: transparent;
+color: transparent;  
+  letter-spacing: -1px;
+  margin-bottom: 5px;
+}
+
+.ios-hero-header p {
+  color: #8e8e93;
+  font-size: 1rem;
+  margin: 0;
+}
+
+/* Grid del Menú Principal */
+.ios-grid-menu {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.ios-action-card {
+  background: #1c1c1e;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 24px;
+  padding: 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+}
+
+.ios-action-card:active {
+  transform: scale(0.96);
+}
+
+.ios-action-card .icon {
+  font-size: 2.5rem;
+  margin-bottom: 12px;
+}
+
+.ios-action-card h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+  color: #fff;
+}
+
+.ios-action-card p {
+  font-size: 0.85rem;
+  color: #8e8e93;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.ios-action-card.primary {
+  background: linear-gradient(145deg, #1c1c1e 0%, #2c2c2e 100%);
+}
+
+/* Listas tipo Configuración iOS */
+.ios-list-container {
+  background: #1c1c1e;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.ios-list-item {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.1);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.ios-list-item:active {
+  background: #2c2c2e;
+}
+
+.ios-list-item:last-child {
+  border-bottom: none;
+}
+
+.ios-list-item h3 {
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin: 0 0 4px 0;
+}
+
+.ios-list-item p {
+  font-size: 0.85rem;
+  color: #8e8e93;
+  margin: 0;
+}
+
+.chevron-right {
+  color: #8e8e93;
+  font-size: 1.5rem;
+}
+
+/* Grid de Grupos */
+.ios-section-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin: 0 0 16px 0;
+  color: #fff;
+}
+
+.ios-grid-grupos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 12px;
+}
+
+.ios-glass-button {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #fff;
+  padding: 14px;
+  border-radius: 16px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.ios-glass-button:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Lista de Alumnos */
+.ios-list-item.alumno {
+  gap: 15px;
+  justify-content: flex-start;
+}
+
+.alumno-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.item-content {
+  flex: 1;
+}
+
+.xp-text {
+  color: #30d158 !important;
+  font-weight: 600 !important;
+}
+
+.ios-list-item.alumno.active {
+  background: rgba(10, 132, 255, 0.15);
+  border-left: 4px solid #0a84ff;
+}
+
+/* ============================================
+   ⚙️ CONTROLES DE MAESTRO (TEACHER MODE)
+   ============================================ */
+
+.teacher-controls {
+  margin-bottom: 20px;
+  padding: 15px;
+  border-radius: 16px;
+  background: rgba(28, 28, 30, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tc-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tc-title {
+  color: #8e8e93;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.tc-toggle {
+  background: rgba(10, 132, 255, 0.15);
+  color: #0a84ff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tc-toggle.active {
+  background: #0a84ff;
+  color: #fff;
+}
+
+.tc-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+}
+
+.tc-btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  transition: transform 0.2s;
+}
+
+.tc-btn:active {
+  transform: scale(0.95);
+}
+
+.tc-btn.danger {
+  background: rgba(255, 69, 58, 0.15);
+  color: #ff453a;
+  border: 1px solid rgba(255, 69, 58, 0.3);
+}
+
+.tc-btn.warning {
+  background: rgba(255, 214, 10, 0.15);
+  color: #ffd60a;
+  border: 1px solid rgba(255, 214, 10, 0.3);
+}
+
+/* Botones +5 y -5 */
+.edit-xp-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.xp-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.xp-btn:active {
+  transform: scale(0.9);
+}
+
+.xp-btn.minus {
+  background: rgba(255, 69, 58, 0.2);
+  color: #ff453a;
+}
+
+.xp-btn.plus {
+  background: rgba(48, 209, 88, 0.2);
+  color: #30d158;
+}
+
+/* ============================================
+   🌌 ESTILOS: VENTANA DE INSPIRACIÓN AURA
+   ============================================ */
+
+.aura-hero-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  overflow: hidden;
+  /* Degradado de fondo por si no tienes imagen aún */
+  background: radial-gradient(circle at center, #0a192f 0%, #020c1b 100%);
+  border: 1px solid rgba(10, 132, 255, 0.2);
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8);
+}
+
+.aura-background-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  /* Aquí puedes poner un patrón de red neuronal o estrellas sutiles */
+  background-image: radial-gradient(rgba(10, 132, 255, 0.1) 1px, transparent 1px);
+  background-size: 30px 30px;
+  opacity: 0.5;
+  z-index: 1;
+}
+
+.aura-content-wrapper {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px;
+  max-width: 80%;
+}
+
+.aura-brain-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  filter: drop-shadow(0 0 15px rgba(10, 132, 255, 0.6));
+  animation: float-brain 4s ease-in-out infinite;
+}
+
+.aura-quote-box {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.aura-quote-text {
+  font-size: 2.2rem;
+  font-weight: 300;
+  line-height: 1.4;
+  color: #ffffff;
+  margin-bottom: 15px;
+  text-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  font-style: italic;
+}
+
+.aura-quote-author {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #0a84ff;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.aura-standby-indicator {
+  margin-top: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: #8e8e93;
+  letter-spacing: 3px;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #30d158;
+  border-radius: 50%;
+  box-shadow: 0 0 10px #30d158;
+  animation: pulse-green 2s infinite;
+}
+
+@keyframes float-brain {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-green {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}
+
+@keyframes subtleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+.mexican-text {
+  margin-top: 2rem;
+  font-family: 'Press Start 2P', cursive;
+  color: #00ff41; 
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 0px #ff0000, -2px -2px 0px #fff; 
+}
+
+.standby-subtitle {
+  margin-top: 15px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 4px;
+}
+
+/* ============================================
+   📱 RESPONSIVE (MÓVILES)
+   ============================================ */
+@media (max-width: 900px) {
+  .tier1-desktop-layout {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .layout-sidebar {
+    width: 100%;
+    height: auto;
+    min-height: 100vh;
+    border-right: none;
+  }
+  .layout-canvas {
+    display: none;
+  }
+  .dynamic-island-notification {
+    left: 50%;
+  }
+}
+
+/* ============================================
+   ESTILOS DE EXPORTACIÓN Y GRÁFICAS (AÑADIR AL FINAL)
+   ============================================ */
+
+.export-actions {
+  display: flex;
+  align-items: center;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: #8e8e93;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  font-family: inherit;
+  transition: color 0.2s;
+}
+
+.tab-btn.active {
+  color: #0a84ff;
+  border-bottom: 2px solid #0a84ff;
+}
+
+.h-name {
+  font-weight: 500;
+  color: #ffffff;
+}
+
+.h-score {
+  font-weight: 800;
+  min-width: 40px;
+  text-align: right;
+}
+
+/* Brillo para las gráficas Recharts */
+.recharts-cartesian-grid-horizontal line, 
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(255, 255, 255, 0.1);
+}
+
+.recharts-curve.recharts-area-curve {
+  filter: drop-shadow(0 0 8px rgba(10, 132, 255, 0.5));
+}
+/* ============================================================
+   AGREGAR AL FINAL DE App.css
+   Selector de 4 modos de idioma
+   ============================================================ */
+
+.language-selector.ios-glass {
+  margin: 12px 0 16px;
+  padding: 14px;
+  background: rgba(28, 28, 30, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+
+.ls-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  color: #8e8e93;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.ls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ls-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transition: all 0.2s;
+}
+
+.ls-btn:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.ls-btn--active {
+  background: rgba(0, 229, 255, 0.1);
+  border-color: rgba(0, 229, 255, 0.4);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.1);
+}
+
+.ls-flags {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.ls-titulo {
+  font-family: 'SF Mono', 'Fira Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.05em;
+}
+
+.ls-btn--active .ls-titulo {
+  color: #00e5ff;
+}
+
+.ls-desc {
+  font-size: 10px;
+  color: #8e8e93;
+}
+
+.ls-btn--active .ls-desc {
+  color: rgba(0, 229, 255, 0.7);
+}
+
+/* Botón positivo para el generador */
+.tc-btn.positive {
+  background: rgba(0, 229, 255, 0.1);
+  color: #00e5ff;
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.tc-btn.positive:hover:not(:disabled) {
+  background: rgba(0, 229, 255, 0.2);
+  border-color: rgba(0, 229, 255, 0.5);
+}
+
+.tc-btn.positive:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

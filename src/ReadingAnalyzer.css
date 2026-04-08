@@ -1,0 +1,1276 @@
+/* ============================================
+   🎮 MODAL DE ANÁLISIS DE LECTURA
+   ESTILO MINECRAFT + FORTNITE (TIER 1 SPLIT-SCREEN)
+   ============================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Minecraft&display=swap');
+
+.modal-overlay-reading {
+  /* ⚠️ MODIFICACIÓN TIER 1: Ya no es fixed, ahora se adapta al lienzo derecho */
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease;
+}
+
+.modal-reading {
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0f1419 100%);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 950px;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 0 50px rgba(0, 255, 255, 0.3), 0 0 100px rgba(138, 43, 226, 0.2);
+  animation: slideUpBounce 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+}
+
+.modal-reading::before {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  background: linear-gradient(45deg, #00ff00, #00ffff, #ff00ff, #ffff00);
+  border-radius: 20px;
+  z-index: -1;
+  animation: borderGlow 3s linear infinite;
+}
+
+@keyframes borderGlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* HEADER CON ESTILO MINECRAFT */
+.header-reading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.2rem 1.5rem;
+  background: linear-gradient(135deg, #2d3436 0%, #000000 100%);
+  border-bottom: 4px solid #00ff41;
+  box-shadow: 0 4px 0 #004d1a, inset 0 -4px 0 rgba(0,0,0,0.5);
+  position: relative;
+}
+
+.header-reading::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #00ff41, transparent);
+  animation: scanline 2s linear infinite;
+}
+
+@keyframes scanline {
+  0%, 100% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+}
+
+.header-reading h2 {
+  color: #00ff41;
+  font-size: 1.5rem;
+  font-family: 'Press Start 2P', cursive;
+  text-shadow: 0 0 10px #00ff41, 0 0 20px #00ff41, 2px 2px 0 #000, -2px -2px 0 #000;
+  margin: 0;
+  letter-spacing: 2px;
+  animation: glitchText 3s infinite;
+}
+
+@keyframes glitchText {
+  0%, 90%, 100% { text-shadow: 0 0 10px #00ff41, 2px 2px 0 #000; }
+  95% { text-shadow: 0 0 10px #00ff41, -2px -2px 0 #ff0000, 2px 2px 0 #0000ff; }
+}
+
+.boton-cerrar-reading {
+  background: linear-gradient(135deg, #ff0844 0%, #ff6b6b 100%);
+  border: 3px solid #ff0844;
+  color: #fff;
+  font-size: 1.5rem;
+  font-family: 'Press Start 2P', cursive;
+  width: 45px;
+  height: 45px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 0 #8b0000, 0 0 10px #ff0844;
+  position: relative;
+  overflow: hidden;
+}
+
+.boton-cerrar-reading::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: rgba(255,255,255,0.3);
+  transition: left 0.3s;
+}
+
+.boton-cerrar-reading:hover::before {
+  left: 100%;
+}
+
+.boton-cerrar-reading:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 0 #8b0000, 0 0 20px #ff0844;
+}
+
+.boton-cerrar-reading:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #8b0000;
+}
+
+.contenido-reading {
+  padding: 1.5rem;
+  color: #fff;
+}
+
+/* ============================================
+   🎮 SELECTOR DE MODO - ESTILO FORTNITE
+   ============================================ */
+
+.selector-modo h3 {
+  font-size: 1.1rem;
+  font-family: 'Press Start 2P', cursive;
+  margin-bottom: 1rem;
+  color: #00ffff;
+  text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff;
+  text-align: center;
+}
+
+.botones-modo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.boton-modo {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 3px solid #00ff41;
+  padding: 1.3rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-family: 'Press Start 2P', cursive;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 0 #004d1a, inset 0 0 20px rgba(0,255,65,0.1);
+}
+
+.boton-modo::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+
+.boton-modo:hover::before {
+  left: 100%;
+}
+
+.boton-modo:hover {
+  border-color: #00ffff;
+  box-shadow: 0 6px 0 #004d1a, 0 0 30px #00ff41, inset 0 0 30px rgba(0,255,65,0.2);
+  transform: translateY(-3px);
+}
+
+.boton-modo.activo {
+  background: linear-gradient(135deg, #00ff41 0%, #00ffaa 100%);
+  border-color: #00ff41;
+  box-shadow: 0 6px 0 #004d1a, 0 0 40px #00ff41, inset 0 0 30px rgba(255,255,255,0.3);
+  animation: pulseActive 1.5s infinite;
+  color: #000;
+  font-weight: bold;
+}
+
+@keyframes pulseActive {
+  0%, 100% { box-shadow: 0 6px 0 #004d1a, 0 0 40px #00ff41; }
+  50% { box-shadow: 0 6px 0 #004d1a, 0 0 60px #00ff41, 0 0 80px #00ffff; }
+}
+
+.desc-modo {
+  font-size: 0.65rem;
+  opacity: 0.8;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* ============================================
+   📄 TEXTOS DE REFERENCIA - ESTILO MINECRAFT
+   ============================================ */
+
+.textos-referencia h4 {
+  font-size: 0.9rem;
+  font-family: 'Press Start 2P', cursive;
+  margin-bottom: 1rem;
+  color: #ffaa00;
+  text-shadow: 0 0 10px #ffaa00;
+}
+
+.lista-textos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.card-texto {
+  background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+  border: 3px solid #555;
+  border-radius: 10px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 0 #111, inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.card-texto:hover {
+  border-color: #ffaa00;
+  box-shadow: 0 6px 0 #111, 0 0 20px #ffaa00;
+  transform: translateY(-3px);
+}
+
+.card-texto.seleccionado {
+  background: linear-gradient(135deg, #ffaa00 0%, #ff6600 100%);
+  border-color: #ffaa00;
+  box-shadow: 0 6px 0 #aa6600, 0 0 30px #ffaa00;
+  animation: pulseSelected 1s infinite;
+}
+
+@keyframes pulseSelected {
+  0%, 100% { box-shadow: 0 6px 0 #aa6600, 0 0 30px #ffaa00; }
+  50% { box-shadow: 0 6px 0 #aa6600, 0 0 50px #ffaa00; }
+}
+
+.card-texto h5 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.75rem;
+  color: #fff;
+  margin-bottom: 0.5rem;
+}
+
+.badge-nivel {
+  display: inline-block;
+  background: #00ff41;
+  color: #000;
+  padding: 0.3rem 0.6rem;
+  border-radius: 5px;
+  font-size: 0.6rem;
+  font-family: 'Press Start 2P', cursive;
+  font-weight: bold;
+  box-shadow: 0 2px 0 #004d1a;
+}
+
+.preview-texto {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  line-height: 1.4;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+/* ============================================
+   🎙️ ESTADO: GRABANDO - FORTNITE STYLE
+   ============================================ */
+
+.contenido-reading.grabando {
+  text-align: center;
+}
+
+.indicador-grabacion {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.circulo-grabacion {
+  width: 90px;
+  height: 90px;
+  background: radial-gradient(circle, #ff0844 0%, #8b0000 100%);
+  border-radius: 50%;
+  border: 4px solid #ff0844;
+  box-shadow: 0 0 0 0 rgba(255, 8, 68, 0.7), inset 0 0 20px rgba(255,255,255,0.3);
+  position: relative;
+}
+
+.circulo-grabacion::after {
+  content: '';
+  position: absolute;
+  inset: 10px;
+  background: #fff;
+  border-radius: 50%;
+  animation: pulseInner 1s infinite;
+}
+
+@keyframes pulseInner {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(0.8); opacity: 1; }
+}
+
+.circulo-grabacion.pulsante {
+  animation: pulseRecGlow 1.5s infinite;
+}
+
+@keyframes pulseRecGlow {
+  0% { box-shadow: 0 0 0 0 rgba(255, 8, 68, 0.7); }
+  50% { box-shadow: 0 0 0 40px rgba(255, 8, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 8, 68, 0); }
+}
+
+.indicador-grabacion h3 {
+  font-size: 1.3rem;
+  font-family: 'Press Start 2P', cursive;
+  color: #ff0844;
+  text-shadow: 0 0 20px #ff0844;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.5; }
+}
+
+.timer-grabacion {
+  background: #000;
+  border: 4px solid #00ff41;
+  border-radius: 15px;
+  padding: 1.2rem 2.5rem;
+  margin: 1rem auto;
+  display: inline-block;
+  box-shadow: 0 4px 0 #004d1a, inset 0 0 30px #00ff41;
+}
+
+.tiempo-grande {
+  font-size: 3.5rem;
+  font-weight: bold;
+  font-family: 'Press Start 2P', cursive;
+  color: #00ff41;
+  text-shadow: 0 0 30px #00ff41;
+}
+
+.transcripcion-en-vivo {
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f1419 100%);
+  border: 3px solid #00ffff;
+  border-radius: 15px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  text-align: left;
+  box-shadow: 0 4px 0 #004d4d, inset 0 0 30px rgba(0,255,255,0.1);
+}
+
+.transcripcion-en-vivo h4 {
+  color: #00ffff;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 10px #00ffff;
+}
+
+.texto-transcripcion {
+  min-height: 100px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 1rem;
+  background: #000;
+  border: 2px solid #00ffff;
+  border-radius: 10px;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #00ff41;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 0 5px #00ff41;
+  animation: typewriter 0.5s steps(40);
+}
+
+@keyframes typewriter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.boton-detener-lectura {
+  width: 100%;
+  padding: 1.3rem;
+  font-size: 1.1rem;
+  font-family: 'Press Start 2P', cursive;
+  background: linear-gradient(135deg, #ff0844 0%, #ff6b6b 100%);
+  border: 4px solid #ff0844;
+  border-radius: 12px;
+  color: white;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+  box-shadow: 0 6px 0 #8b0000, 0 0 20px #ff0844;
+}
+
+.boton-detener-lectura:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 9px 0 #8b0000, 0 0 40px #ff0844;
+}
+
+.boton-detener-lectura:active {
+  transform: translateY(2px);
+  box-shadow: 0 3px 0 #8b0000;
+}
+
+/* ============================================
+   🤖 ESTADO: ANALIZANDO
+   ============================================ */
+
+.contenido-reading.analizando {
+  text-align: center;
+  padding: 4rem 2rem;
+}
+
+.spinner-analisis {
+  width: 100px;
+  height: 100px;
+  border: 8px solid rgba(0, 255, 255, 0.1);
+  border-top-color: #00ffff;
+  border-right-color: #ff00ff;
+  border-radius: 50%;
+  animation: spinGlow 1s linear infinite;
+  margin: 0 auto 2rem;
+}
+
+@keyframes spinGlow {
+  0% { transform: rotate(0deg); box-shadow: 0 0 20px #00ffff; }
+  50% { box-shadow: 0 0 40px #ff00ff; }
+  100% { transform: rotate(360deg); box-shadow: 0 0 20px #00ffff; }
+}
+
+.contenido-reading.analizando h3 {
+  font-size: 1.5rem;
+  font-family: 'Press Start 2P', cursive;
+  color: #00ffff;
+  text-shadow: 0 0 20px #00ffff;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+/* ============================================
+   ✨ RESULTADO ÉPICO - PANTALLA GAMING
+   ============================================ */
+
+.contenido-reading.resultado {
+  padding: 1.5rem;
+  animation: resultadoEntrada 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes resultadoEntrada {
+  0% { opacity: 0; transform: scale(0.8) rotate(-5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+/* HERO SECTION */
+.resultado-hero {
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  border: 4px solid #00ff41;
+  border-radius: 20px;
+  padding: 2rem 1rem;
+  margin-bottom: 1.5rem;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 0 #004d1a, 0 0 60px #00ff41, inset 0 0 40px rgba(0,255,65,0.1);
+  animation: heroGlow 2s infinite alternate;
+}
+
+@keyframes heroGlow {
+  0% { box-shadow: 0 8px 0 #004d1a, 0 0 60px #00ff41; }
+  100% { box-shadow: 0 8px 0 #004d1a, 0 0 100px #00ff41, 0 0 150px #00ffff; }
+}
+
+.resultado-hero::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent 40%, rgba(0,255,65,0.1) 50%, transparent 60%);
+  animation: shine 3s linear infinite;
+}
+
+@keyframes shine {
+  0% { transform: translateX(-100%) translateY(-100%); }
+  100% { transform: translateX(100%) translateY(100%); }
+}
+
+.resultado-emoji-grande {
+  font-size: 5.5rem;
+  animation: emojiPop 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  margin-bottom: 1rem;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 0 30px rgba(255,255,0,0.8));
+}
+
+@keyframes emojiPop {
+  0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+  60% { transform: scale(1.3) rotate(20deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+.resultado-calificacion-circle {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  background: #000;
+  border: 5px solid var(--color-calif, #00ff41);
+  border-radius: 60px;
+  padding: 0.8rem 3rem;
+  box-shadow: 0 0 50px var(--color-calif, #00ff41), 0 0 100px var(--color-calif, #00ff41), inset 0 0 30px var(--color-calif, #00ff41);
+  animation: scoreGlow 1.5s ease-in-out infinite alternate;
+  margin-bottom: 1rem;
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@keyframes scoreGlow {
+  0% { box-shadow: 0 0 50px var(--color-calif), inset 0 0 30px var(--color-calif); }
+  100% { box-shadow: 0 0 100px var(--color-calif), 0 0 150px var(--color-calif), inset 0 0 50px var(--color-calif); }
+}
+
+.resultado-numero {
+  font-size: 5.5rem;
+  font-weight: 900;
+  font-family: 'Press Start 2P', cursive;
+  color: var(--color-calif, #00ff41);
+  line-height: 1;
+  text-shadow: 0 0 40px var(--color-calif), 0 0 80px var(--color-calif);
+  animation: numberCount 0.8s ease-out;
+}
+
+@keyframes numberCount {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.resultado-denom {
+  font-size: 2rem;
+  font-family: 'Press Start 2P', cursive;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.resultado-mensaje-motivador {
+  font-size: 1.15rem;
+  font-weight: 900;
+  font-family: 'Press Start 2P', cursive;
+  color: #fff;
+  text-align: center;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 1.2rem;
+  animation: messageSlide 0.6s ease 0.4s both;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 0 20px #fff, 0 0 40px #00ff41, 3px 3px 0 #000;
+}
+
+@keyframes messageSlide {
+  0% { opacity: 0; transform: translateY(30px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+.resultado-puntos-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #ffaa00 0%, #ff6600 100%);
+  border: 4px solid #ffaa00;
+  border-radius: 60px;
+  padding: 0.8rem 2.5rem;
+  box-shadow: 0 6px 0 #aa6600, 0 0 40px #ffaa00;
+  animation: badgePop 0.6s ease 0.6s both;
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@keyframes badgePop {
+  0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+  70% { transform: scale(1.1) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+.puntos-badge-icon { font-size: 2rem; animation: starSpin 2s linear infinite; }
+
+@keyframes starSpin {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-10deg) scale(1.1); }
+  75% { transform: rotate(10deg) scale(1.1); }
+}
+
+.puntos-badge-numero {
+  font-size: 2.8rem;
+  font-weight: 900;
+  font-family: 'Press Start 2P', cursive;
+  color: #fff;
+  text-shadow: 0 0 20px #fff, 3px 3px 0 #000;
+}
+
+.puntos-badge-texto {
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-family: 'Press Start 2P', cursive;
+  color: #000;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-shadow: 1px 1px 0 #ffaa00;
+}
+
+/* MÉTRICAS - ESTILO FORTNITE */
+.resultado-metricas {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.metrica-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f1419 100%);
+  border: 3px solid #00ff41;
+  border-radius: 15px;
+  padding: 1rem 0.5rem;
+  text-align: center;
+  box-shadow: 0 4px 0 #004d1a, inset 0 0 20px rgba(0,255,65,0.1);
+  transition: all 0.3s ease;
+}
+
+.metrica-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 0 #004d1a, 0 0 30px #00ff41;
+}
+
+.metrica-icon { font-size: 2rem; display: block; margin-bottom: 0.5rem; filter: drop-shadow(0 0 10px #fff); }
+.metrica-big { display: block; font-size: 2.2rem; font-weight: 900; font-family: 'Press Start 2P', cursive; color: #00ff41; text-shadow: 0 0 15px #00ff41; }
+.metrica-sub { display: block; font-size: 0.65rem; font-family: 'Press Start 2P', cursive; color: rgba(255,255,255,0.6); text-transform: uppercase; margin-top: 5px; }
+
+/* CATEGORÍAS */
+.resultado-categorias-titulo {
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: 'Press Start 2P', cursive;
+  color: #00ffff;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 1rem;
+  text-align: center;
+  text-shadow: 0 0 15px #00ffff;
+}
+
+.resultado-categorias {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.cat-card {
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f1419 100%);
+  border: 3px solid #555;
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 0 #111, inset 0 0 20px rgba(0,0,0,0.5);
+}
+
+.cat-card:hover {
+  border-color: #00ff41;
+  box-shadow: 0 6px 0 #111, 0 0 20px #00ff41;
+  transform: translateY(-3px);
+}
+
+.cat-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0.6rem;
+}
+
+.cat-icono { font-size: 1.5rem; filter: drop-shadow(0 0 5px #fff); }
+.cat-nombre { flex: 1; font-weight: 700; font-family: 'Press Start 2P', cursive; color: #fff; font-size: 0.75rem; text-shadow: 2px 2px 0 #000; text-align: left;}
+.cat-puntuacion { font-weight: 900; font-family: 'Press Start 2P', cursive; font-size: 1rem; text-shadow: 0 0 10px currentColor; }
+
+.cat-barra-bg {
+  height: 12px;
+  background: #000;
+  border: 2px solid #555;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 0.6rem;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+}
+
+.cat-barra-fill {
+  height: 100%;
+  border-radius: 8px;
+  animation: barraSlide 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+  box-shadow: 0 0 15px currentColor;
+}
+
+@keyframes barraSlide {
+  0% { width: 0% !important; }
+}
+
+.cat-comentario {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.5;
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  text-align: left;
+}
+
+/* FEEDBACK CARDS */
+.resultado-feedback {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.feedback-card {
+  border: 3px solid;
+  border-radius: 15px;
+  padding: 1.2rem;
+  box-shadow: 0 4px 0;
+}
+
+.fortalezas-card {
+  background: linear-gradient(135deg, #00ff41 0%, #00aa2a 100%);
+  border-color: #00ff41;
+  box-shadow: 0 6px 0 #004d1a, 0 0 30px #00ff41;
+  color: #000;
+}
+
+.mejorar-card {
+  background: linear-gradient(135deg, #ffaa00 0%, #ff6600 100%);
+  border-color: #ffaa00;
+  box-shadow: 0 6px 0 #aa6600, 0 0 30px #ffaa00;
+  color: #000;
+}
+
+.feedback-card h4 {
+  font-size: 0.85rem;
+  font-weight: 900;
+  font-family: 'Press Start 2P', cursive;
+  margin-bottom: 0.8rem;
+  text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+  text-align: left;
+}
+
+.feedback-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.feedback-card li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  font-family: 'Segoe UI', sans-serif;
+  text-align: left;
+}
+
+.feedback-bullet { flex-shrink: 0; font-size: 1.2rem; }
+
+/* COMENTARIO GENERAL */
+.resultado-comentario {
+  background: linear-gradient(135deg, #2d3436 0%, #000000 100%);
+  border: 3px solid #00ffff;
+  border-radius: 15px;
+  padding: 1.3rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 0 #004d4d, 0 0 30px #00ffff;
+}
+
+.resultado-comentario h4 {
+  font-size: 0.85rem;
+  font-weight: 900;
+  font-family: 'Press Start 2P', cursive;
+  color: #00ffff;
+  margin-bottom: 0.8rem;
+  text-shadow: 0 0 15px #00ffff;
+  text-align: left;
+}
+
+.resultado-comentario p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.6;
+  margin: 0;
+  font-family: 'Segoe UI', sans-serif;
+  text-align: left;
+}
+
+/* BOTONES FINALES */
+.botones-resultado {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.boton-nueva-lectura {
+  padding: 1.2rem;
+  background: linear-gradient(135deg, #555 0%, #333 100%);
+  border: 3px solid #fff;
+  color: white;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-family: 'Press Start 2P', cursive;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 0 #000;
+}
+
+.boton-nueva-lectura:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 7px 0 #000, 0 0 20px #fff;
+}
+
+.boton-nueva-lectura:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 #000;
+}
+
+.boton-cerrar-resultado {
+  padding: 1.2rem;
+  background: linear-gradient(135deg, #00ff41 0%, #00aa2a 100%);
+  border: 3px solid #00ff41;
+  color: #000;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-family: 'Press Start 2P', cursive;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 6px 0 #004d1a, 0 0 30px #00ff41;
+  transition: all 0.2s ease;
+}
+
+.boton-cerrar-resultado:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 9px 0 #004d1a, 0 0 50px #00ff41;
+}
+
+.boton-cerrar-resultado:active {
+  transform: translateY(2px);
+  box-shadow: 0 3px 0 #004d1a;
+}
+
+/* ============================================
+   📱 RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .modal-reading { width: 96%; }
+  .header-reading h2 { font-size: 0.85rem; }
+  .botones-modo { grid-template-columns: 1fr; }
+  .resultado-metricas { grid-template-columns: repeat(3, 1fr); }
+  .resultado-feedback { grid-template-columns: 1fr; }
+  .botones-resultado { grid-template-columns: 1fr; }
+  .lista-textos { grid-template-columns: 1fr; }
+  .resultado-numero { font-size: 4rem; }
+  .resultado-emoji-grande { font-size: 4rem; }
+  .resultado-mensaje-motivador { font-size: 0.75rem; }
+  .puntos-badge-numero { font-size: 2rem; }
+  .cat-nombre { font-size: 0.65rem; }
+}
+
+/* ============================================
+   🎯 ANIMACIONES GLOBALES
+   ============================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUpBounce {
+  0% { transform: translateY(100px) scale(0.8); opacity: 0; }
+  60% { transform: translateY(-20px) scale(1.05); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* ERROR MICRÓFONO */
+.error-microfono {
+  background: linear-gradient(135deg, #ff0844 0%, #8b0000 100%);
+  border: 3px solid #ff0844;
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  margin: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: #fff;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.7rem;
+  box-shadow: 0 4px 0 #8b0000, 0 0 20px #ff0844;
+}
+
+.error-microfono button {
+  background: #fff;
+  border: none;
+  color: #ff0844;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.6rem;
+  font-weight: bold;
+  box-shadow: 0 2px 0 #ccc;
+}
+
+.error-microfono button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 0 #ccc;
+}
+
+/* INSTRUCCIONES */
+.instrucciones-lectura {
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f1419 100%);
+  border: 3px solid #00ff41;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: 0 4px 0 #004d1a, inset 0 0 20px rgba(0,255,65,0.1);
+}
+
+.instrucciones-lectura h4 {
+  color: #00ff41;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 10px #00ff41;
+  text-align: left;
+}
+
+.instrucciones-lectura ul {
+  list-style: none;
+  padding: 0;
+}
+
+.instrucciones-lectura li {
+  padding: 0.6rem 0;
+  font-size: 0.85rem;
+  font-family: 'Segoe UI', sans-serif;
+  opacity: 0.9;
+  text-align: left;
+}
+
+.boton-iniciar-lectura {
+  width: 100%;
+  padding: 1.5rem;
+  font-size: 1.1rem;
+  font-family: 'Press Start 2P', cursive;
+  background: linear-gradient(135deg, #00ff41 0%, #00aa2a 100%);
+  border: 4px solid #00ff41;
+  border-radius: 12px;
+  color: #000;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+  box-shadow: 0 6px 0 #004d1a, 0 0 30px #00ff41;
+  text-transform: uppercase;
+}
+
+.boton-iniciar-lectura:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 9px 0 #004d1a, 0 0 50px #00ff41;
+}
+
+.boton-iniciar-lectura:active {
+  transform: translateY(2px);
+  box-shadow: 0 3px 0 #004d1a;
+}
+
+.boton-iniciar-lectura:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #555;
+  border-color: #333;
+  box-shadow: 0 4px 0 #111;
+}
+
+.texto-personalizado {
+  margin-top: 1.5rem;
+}
+
+.texto-personalizado h4 {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.8rem;
+  color: #ffaa00;
+  margin-bottom: 0.8rem;
+  text-shadow: 0 0 10px #ffaa00;
+  text-align: left;
+}
+
+.texto-personalizado textarea {
+  width: 100%;
+  background: #000;
+  border: 3px solid #555;
+  border-radius: 10px;
+  padding: 1rem;
+  color: #fff;
+  font-size: 1rem;
+  resize: vertical;
+  font-family: 'Courier New', monospace;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+.texto-personalizado textarea:focus {
+  outline: none;
+  border-color: #ffaa00;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.8), 0 0 20px #ffaa00;
+}
+
+.texto-guia {
+  background: linear-gradient(135deg, #1a1a2e 0%, #0f1419 100%);
+  border: 3px solid #ffaa00;
+  border-radius: 15px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+  text-align: left;
+  box-shadow: 0 4px 0 #aa6600, inset 0 0 20px rgba(255,170,0,0.1);
+}
+
+.texto-guia h4 {
+  color: #ffaa00;
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+  text-shadow: 0 0 10px #ffaa00;
+}
+
+.texto-scroll {
+  max-height: 150px;
+  overflow-y: auto;
+  padding: 1rem;
+  background: #000;
+  border: 2px solid #ffaa00;
+  border-radius: 10px;
+  font-size: 1rem;
+  line-height: 1.6;
+  font-family: 'Segoe UI', sans-serif;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+}
+
+/* ============================================
+   🌟 PESTAÑA LATENTE IA (LA MAGIA TIER 1)
+   ============================================ */
+
+.pestaña-latente-ia {
+  position: absolute;
+  top: 40px;
+  right: -15px; 
+  background: linear-gradient(135deg, #8c44f7 0%, #00d2ff 100%);
+  border: 4px solid #fff;
+  border-radius: 20px 0 0 20px;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+  z-index: 10001; 
+  box-shadow: -8px 8px 0 rgba(0,0,0,0.4), 0 0 30px rgba(140, 68, 247, 0.6);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.pestaña-latente-ia:hover {
+  transform: translateX(-15px) scale(1.05);
+  box-shadow: -12px 12px 0 rgba(0,0,0,0.4), 0 0 50px rgba(0, 210, 255, 0.8);
+  border-color: #00ff41;
+}
+
+.latente-icon {
+  font-size: 2.2rem;
+  filter: drop-shadow(0 0 10px #fff);
+  animation: floatIcon 2s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px) scale(1.1); }
+}
+
+.latente-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.latente-title {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.65rem;
+  color: #fff;
+  text-shadow: 2px 2px 0 #000;
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+}
+
+.latente-xp {
+  font-family: 'Press Start 2P', cursive;
+  font-size: 0.85rem;
+  color: #00ff41;
+  text-shadow: 0 0 15px #00ff41, 2px 2px 0 #000;
+  animation: pulseXPText 1.5s infinite;
+}
+
+@keyframes pulseXPText {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+.pestaña-latente-ia.vibrate {
+  animation: shakeTier1 0.6s cubic-bezier(.36,.07,.19,.97) both;
+  background: linear-gradient(135deg, #00ff41 0%, #00d2ff 100%);
+}
+
+@keyframes shakeTier1 {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(4px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-6px, 0, 0); }
+  40%, 60% { transform: translate3d(6px, 0, 0); }
+}
+
+@media (max-width: 768px) {
+  .pestaña-latente-ia {
+    top: 20px;
+    right: -10px;
+    padding: 8px 16px;
+    border-radius: 15px 0 0 15px;
+  }
+  .latente-icon { font-size: 1.5rem; }
+  .latente-title { font-size: 0.5rem; }
+  .latente-xp { font-size: 0.65rem; }
+}
+/* ============================================================
+   AGREGAR AL FINAL DE ReadingAnalyzer.css
+   Pantalla de análisis via Portal + fix pestaña latente
+   ============================================================ */
+
+/* ── Pantalla fullscreen de "analizando" (Portal sobre todo) ── */
+.ra-analizando-portal {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #04050a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ra-analizando-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  text-align: center;
+  padding: 2rem;
+}
+
+.ra-spinner {
+  width: 80px;
+  height: 80px;
+  border: 6px solid rgba(0, 255, 255, 0.1);
+  border-top-color: #00ffff;
+  border-right-color: #ff00ff;
+  border-radius: 50%;
+  animation: ra-spin 1s linear infinite;
+}
+
+@keyframes ra-spin {
+  0%   { transform: rotate(0deg);   box-shadow: 0 0 20px #00ffff; }
+  50%  {                             box-shadow: 0 0 40px #ff00ff; }
+  100% { transform: rotate(360deg); box-shadow: 0 0 20px #00ffff; }
+}
+
+.ra-analizando-titulo {
+  font-family: 'Press Start 2P', cursive;
+  font-size: clamp(0.9rem, 2vw, 1.4rem);
+  color: #00ffff;
+  text-shadow: 0 0 20px #00ffff;
+  animation: ra-pulse 1.2s ease-in-out infinite;
+  margin: 0;
+}
+
+@keyframes ra-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.ra-analizando-sub {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.ra-analizando-dots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ra-analizando-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #00ffff;
+  opacity: 0.3;
+  animation: ra-dot 1.4s ease-in-out infinite;
+}
+
+.ra-analizando-dots span:nth-child(2) { animation-delay: 0.2s; background: #ff00ff; }
+.ra-analizando-dots span:nth-child(3) { animation-delay: 0.4s; background: #00ff41; }
+
+@keyframes ra-dot {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.3); }
+}
+
+/* ── Pestaña latente — posición fija vía Portal ── */
+/* Los estilos de .pestaña-latente-ia ya están en ReadingAnalyzer.css   */
+/* Solo necesitamos confirmar que position:fixed está aplicado via JSX  */
+/* El componente ya pasa style={{ position:'fixed', top:'80px', right:0 }} */

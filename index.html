@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Aura Core" />
+
+    <!-- Iconos para iOS (Safari no lee el manifest) -->
+    <link rel="apple-touch-icon" sizes="192x192" href="/icon-192.png" />
+    <link rel="apple-touch-icon" sizes="512x512" href="/icon-512.png" />
+
+    <!-- SEO básico -->
+    <meta name="description" content="Análisis de lectura en tiempo real para maestros" />
+
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <title>Aura Core</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Registro del Service Worker -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then((reg) => {
+              console.log('[Aura Core] SW registrado:', reg.scope);
+
+              // Si hay una nueva versión disponible, notifica
+              reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (
+                    newWorker.state === 'installed' &&
+                    navigator.serviceWorker.controller
+                  ) {
+                    // Hay actualización disponible — puedes mostrar un banner aquí
+                    console.log('[Aura Core] Nueva versión disponible');
+                  }
+                });
+              });
+            })
+            .catch((err) => console.warn('[Aura Core] SW error:', err));
+        });
+      }
+    </script>
+  </body>
+</html>
