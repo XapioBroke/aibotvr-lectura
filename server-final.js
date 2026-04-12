@@ -2,20 +2,28 @@
 import express from 'express';
 import cors from 'cors';
 import fetch from 'node-fetch';
-import https from 'https';
 import http from 'http';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-const PORT = 3001;
 
-const ANTHROPIC_API_KEY = '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';
+// ── Puerto dinámico para Railway (en local usa 3001) ──
+const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// ── API Key desde variable de entorno ──
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://iapprende.com',
+    'https://www.iapprende.com',
+    'https://aura.iapprende.com',
+  ],
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type'],
+}));
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -56,14 +64,11 @@ app.get('/mic/:sesionId', (req, res) => {
   <script>
     const SESION_ID = '${sesionId}';
     const SERVER = window.location.origin;
-    // ── ESTRATEGIA: sesiones cortas encadenadas (sin continuous:true)
-    // Cada sesión dura hasta que Chrome la termina (~5-10s)
-    // Se encadenan automáticamente acumulando SOLO texto nuevo
     let grabando = false;
     let tiempoInicio = null;
     let timerInterval = null;
     let liveInterval = null;
-    let textoAcumulado = ''; // texto final limpio, nunca se duplica
+    let textoAcumulado = '';
     let sesionActiva = null;
 
     function toggleGrabacion() {
@@ -75,48 +80,35 @@ app.get('/mic/:sesionId', (req, res) => {
       if (!grabando) return;
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
       const r = new SR();
-      // NO usar continuous:true — cada sesión es corta y limpia
       r.continuous = false;
       r.interimResults = true;
       r.lang = 'es-MX';
       r.maxAlternatives = 1;
-
-      let textoSesion = ''; // solo lo de esta sesión
-
+      let textoSesion = '';
       r.onresult = (e) => {
         textoSesion = '';
         for (let i = 0; i < e.results.length; i++) {
           textoSesion += e.results[i][0].transcript;
         }
-        // Mostrar acumulado + interim de esta sesión
         const total = (textoAcumulado + ' ' + textoSesion).trim();
         document.getElementById('resultado').style.display = 'block';
         document.getElementById('resultado').textContent = total;
       };
-
       r.onend = () => {
-        // Agregar solo el texto de esta sesión al acumulado
         if (textoSesion.trim()) {
           textoAcumulado = (textoAcumulado + ' ' + textoSesion.trim()).trim();
           document.getElementById('resultado').textContent = textoAcumulado;
         }
-        // Encadenar siguiente sesión automáticamente
-        if (grabando) {
-          setTimeout(() => iniciarSesionCorta(), 100);
-        }
+        if (grabando) setTimeout(() => iniciarSesionCorta(), 100);
       };
-
       r.onerror = (e) => {
         if (e.error === 'no-speech') {
-          // Normal — encadenar siguiente sesión
           if (grabando) setTimeout(() => iniciarSesionCorta(), 100);
           return;
         }
-        if (e.error === 'aborted') return; // detención manual, ignorar
-        console.error('mic error:', e.error);
+        if (e.error === 'aborted') return;
         if (grabando) setTimeout(() => iniciarSesionCorta(), 500);
       };
-
       sesionActiva = r;
       try { r.start(); } catch(_) {}
     }
@@ -130,34 +122,24 @@ app.get('/mic/:sesionId', (req, res) => {
       sesionActiva = null;
       grabando = true;
       tiempoInicio = Date.now();
-
       document.getElementById('btn').className = 'grabando';
       document.getElementById('btn').textContent = '⏹';
       document.getElementById('estado').textContent = '🔴 Grabando...';
       document.getElementById('resultado').textContent = '';
       document.getElementById('resultado').style.display = 'block';
-
-      // Iniciar primera sesión corta
       iniciarSesionCorta();
-
-      // Timer visual
       timerInterval = setInterval(() => {
         const seg = Math.floor((Date.now() - tiempoInicio) / 1000);
         const m = Math.floor(seg / 60).toString().padStart(2, '0');
         const s = (seg % 60).toString().padStart(2, '0');
         document.getElementById('timer').textContent = m + ':' + s;
       }, 1000);
-
-      // Avisar al servidor — activa fullscreen en la PC
       fetch(SERVER + '/api/mic-start/' + SESION_ID, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }
       }).catch(() => {});
-
-      // Enviar texto acumulado en vivo cada 1s para tracker más fluido
       let ultimoEnviado = '';
       liveInterval = setInterval(() => {
         const textoActual = textoAcumulado.trim();
-        // Solo enviar si hay texto nuevo desde el último envío
         if (textoActual && textoActual !== ultimoEnviado) {
           ultimoEnviado = textoActual;
           const seg = Math.floor((Date.now() - tiempoInicio) / 1000);
@@ -169,21 +151,18 @@ app.get('/mic/:sesionId', (req, res) => {
         }
       }, 1000);
     }
+
     async function detenerGrabacion() {
-      grabando = false; // primero — impide que onend encadene nueva sesión
+      grabando = false;
       if (sesionActiva) { try { sesionActiva.stop(); } catch(_) {} sesionActiva = null; }
       clearInterval(timerInterval); clearInterval(liveInterval);
       const tiempo = Math.floor((Date.now() - tiempoInicio) / 1000);
-
       document.getElementById('btn').className = '';
       document.getElementById('btn').textContent = '✅';
       document.getElementById('estado').textContent = '⬆️ Enviando al PC...';
       document.getElementById('timer').textContent = '';
-
-      // Pequeña espera para capturar el último fragmento del onend
       await new Promise(r => setTimeout(r, 400));
       const textoFinal = textoAcumulado.trim();
-
       try {
         await fetch(SERVER + '/api/mic-result/' + SESION_ID, {
           method: 'POST',
@@ -202,20 +181,19 @@ app.get('/mic/:sesionId', (req, res) => {
 </html>`);
 });
 
-// ── QR MICRÓFONO — Ruta 2: polling desde Aura (incluye transcripción en vivo) ──
+// ── QR MICRÓFONO — polling desde Aura ──
 app.get('/api/mic-status/:sesionId', (req, res) => {
   const sesion = sesionesQR[req.params.sesionId];
   if (!sesion) return res.json({ conectado: false, transcripcion: null });
   res.json({
-    conectado:           sesion.conectado     || false,
-    grabando:            sesion.grabando      || false,
-    transcripcion:       sesion.transcripcion || null,  // final (al detener)
-    transcripcionLive:   sesion.transcripcionLive || null, // en tiempo real
-    tiempo:              sesion.tiempo        || null,
+    conectado:         sesion.conectado          || false,
+    grabando:          sesion.grabando           || false,
+    transcripcion:     sesion.transcripcion      || null,
+    transcripcionLive: sesion.transcripcionLive  || null,
+    tiempo:            sesion.tiempo             || null,
   });
 });
 
-// ── QR MICRÓFONO — Ruta 2b: el celular envía transcripción en vivo ──
 app.post('/api/mic-live/:sesionId', (req, res) => {
   const { transcripcion, tiempo } = req.body;
   if (sesionesQR[req.params.sesionId]) {
@@ -225,7 +203,6 @@ app.post('/api/mic-live/:sesionId', (req, res) => {
   res.json({ ok: true });
 });
 
-// ── QR MICRÓFONO — Ruta 3b: el celular avisa que INICIÓ grabación ──
 app.post('/api/mic-start/:sesionId', (req, res) => {
   if (sesionesQR[req.params.sesionId]) {
     sesionesQR[req.params.sesionId].grabando = true;
@@ -233,7 +210,6 @@ app.post('/api/mic-start/:sesionId', (req, res) => {
   res.json({ ok: true });
 });
 
-// ── QR MICRÓFONO — Ruta 3: el celular envía la transcripción ──
 app.post('/api/mic-result/:sesionId', (req, res) => {
   const { transcripcion, tiempo } = req.body;
   sesionesQR[req.params.sesionId] = { conectado: true, transcripcion, tiempo };
@@ -247,11 +223,9 @@ app.post('/api/analizar-lectura', async (req, res) => {
   const timeoutId = setTimeout(() => controller.abort(), 90000);
 
   try {
-    console.log('📥 Recibiendo solicitud de análisis...');
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: 'El prompt es requerido' });
 
-    console.log('🤖 Procesando con Claude API...');
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       signal: controller.signal,
@@ -272,64 +246,28 @@ app.post('/api/analizar-lectura', async (req, res) => {
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('❌ Error de API de Claude:', errorData);
       return res.status(response.status).json({ error: `API Error: ${response.statusText}`, details: errorData });
     }
 
     const data = await response.json();
-    console.log('✅ Respuesta exitosa generada por Claude');
     res.json(data);
 
   } catch (error) {
     if (error.name === 'AbortError') {
-      console.error('❌ Timeout.');
       return res.status(504).json({ error: 'Timeout — el texto era muy largo.' });
     }
-    console.error('❌ Error crítico:', error);
-    res.status(500).json({ error: error.message, stack: error.stack });
+    res.status(500).json({ error: error.message });
   } finally {
     clearTimeout(timeoutId);
   }
 });
 
 // ── Health check ──
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Servidor funcionando ⌚' });
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// ── SERVIDOR: HTTPS si hay certificado, HTTP como fallback ──
-const CERT_FILE = path.join(__dirname, '192.168.1.97+2.pem');
-const KEY_FILE  = path.join(__dirname, '192.168.1.97+2-key.pem');
-
-const tieneCert = fs.existsSync(CERT_FILE) && fs.existsSync(KEY_FILE);
-
-// HTTP siempre activo en 3001 para que la PC (localhost) funcione sin problemas
-http.createServer(app).listen(3001, 'localhost', () => {
-  console.log('  ✅ HTTP  → localhost:3001 (uso interno PC)');
+// ── SERVIDOR — solo HTTP, Railway maneja SSL ──
+http.createServer(app).listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Servidor corriendo en puerto ${PORT}`);
 });
-
-if (tieneCert) {
-  const sslOptions = {
-    cert: fs.readFileSync(CERT_FILE),
-    key:  fs.readFileSync(KEY_FILE),
-  };
-  // HTTPS en 3443 para el celular via red local
-  https.createServer(sslOptions, app).listen(3443, '0.0.0.0', () => {
-    console.log(`
-╔════════════════════════════════════════╗
-║  🚀 BACKEND TIER 1 ACTIVO             ║
-║  🖥️  HTTP  → localhost:3001 (PC)      ║
-║  📱 HTTPS → 192.168.1.97:3443 (QR)   ║
-║  🔒 SSL: HABILITADO                   ║
-╚════════════════════════════════════════╝
-    `);
-  });
-} else {
-  console.log(`
-╔════════════════════════════════════════╗
-║  🚀 BACKEND TIER 1 ACTIVO             ║
-║  🖥️  HTTP  → localhost:3001 (PC)      ║
-║  ⚠️  Sin SSL — ejecuta mkcert para QR ║
-╚════════════════════════════════════════╝
-  `);
-}
