@@ -71,7 +71,7 @@ const reproducirSonido = (tipo) => {
 
 // ── QR MICRÓFONO — genera QR usando API pública sin dependencias ──
 // URL interna para la PC (HTTP, sin cambios)
-const PC_API_URL  = 'http://localhost:3001';
+const API_URL = 'https://api.iapprende.com';
 // URL para el celular via red local (HTTPS para poder usar micrófono)
 const SERVER_IP   = '192.168.1.97';
 const SERVER_URL  = `https://${SERVER_IP}:3443`;
