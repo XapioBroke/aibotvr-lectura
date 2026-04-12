@@ -251,7 +251,7 @@ const ReadingFullscreen = ({
     if (!conTraduccion || !texto || texto.trim().length < 8) return;
     setTraduciendo(true);
     try {
-      const res = await fetch('http://localhost:3001/api/analizar-lectura', {
+      const res = await fetch('https://api.iapprende.com/api/analizar-lectura', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

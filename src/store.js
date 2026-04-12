@@ -287,7 +287,7 @@ Responde ÚNICAMENTE con un JSON válido con esta estructura exacta, sin comilla
 {"titulo": "Título aquí", "contenido": "Texto aquí"}`;
 
         try {
-          const response = await fetch('http://localhost:3001/api/analizar-lectura', {
+          const response = await fetch('https://api.iapprende.com/api/analizar-lectura', {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ prompt }),
