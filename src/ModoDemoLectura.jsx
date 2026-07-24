@@ -20,56 +20,79 @@ const _auth  = getAuth(_fbApp);
 // ── Textos de práctica ────────────────────────────────────────
 const TEXTOS = [
   {
-    id: 't1', nivel: 'Fácil', color: '#00FF41',
+    id: 't1', nivel: 'Fácil', color: '#00C853',
     titulo: 'El agua y la vida',
-    texto: 'El agua es esencial para todos los seres vivos. Cubre más del setenta por ciento de la superficie de la Tierra y constituye la mayor parte de nuestro cuerpo. Sin agua ningún organismo podría sobrevivir. Los ríos lagos y océanos son hogar de millones de especies. Debemos cuidar este recurso tan valioso para las generaciones futuras.',
+    texto: 'El agua es esencial para todos los seres vivos. Cubre más del setenta por ciento de la superficie de la Tierra y constituye la mayor parte de nuestro cuerpo. Sin agua ningún organismo podría sobrevivir. Los ríos, lagos y océanos son hogar de millones de especies. Debemos cuidar este recurso tan valioso para las generaciones futuras.',
   },
   {
-    id: 't2', nivel: 'Fácil', color: '#00FF41',
+    id: 't2', nivel: 'Fácil', color: '#00C853',
     titulo: 'La selva amazónica',
-    texto: 'La selva amazónica es el bosque tropical más grande del mundo. Se extiende por nueve países de América del Sur y alberga una biodiversidad increíble. En ella viven millones de especies de plantas animales e insectos. El Amazonas produce una gran cantidad del oxígeno que respiramos. Por eso se le llama el pulmón del planeta.',
+    texto: 'La selva amazónica es el bosque tropical más grande del mundo. Se extiende por nueve países de América del Sur y alberga una biodiversidad increíble. En ella viven millones de especies de plantas, animales e insectos. El Amazonas produce una gran cantidad del oxígeno que respiramos. Por eso se le llama el pulmón del planeta.',
   },
   {
-    id: 't3', nivel: 'Medio', color: '#FFD700',
+    id: 't3', nivel: 'Medio', color: '#FFB300',
     titulo: 'La Revolución Industrial',
     texto: 'La Revolución Industrial comenzó en Inglaterra a finales del siglo dieciocho y transformó radicalmente la sociedad. El invento de la máquina de vapor permitió mecanizar la producción y crear fábricas. Millones de personas migraron del campo a las ciudades en busca de trabajo. Este periodo marcó el inicio de la era moderna tal como la conocemos hoy en día.',
   },
   {
-    id: 't4', nivel: 'Medio', color: '#FFD700',
+    id: 't4', nivel: 'Medio', color: '#FFB300',
     titulo: 'El sistema solar',
-    texto: 'El sistema solar está compuesto por el Sol y todos los cuerpos celestes que orbitan a su alrededor. Los ocho planetas se dividen en interiores y exteriores. Además de los planetas existen lunas asteroides cometas y planetas enanos. La gravedad del Sol es la fuerza que mantiene todo en órbita. La luz solar tarda aproximadamente ocho minutos en llegar a la Tierra.',
+    texto: 'El sistema solar está compuesto por el Sol y todos los cuerpos celestes que orbitan a su alrededor. Los ocho planetas se dividen en interiores y exteriores. Además de los planetas, existen lunas, asteroides, cometas y planetas enanos. La gravedad del Sol es la fuerza que mantiene todo en órbita. La luz solar tarda aproximadamente ocho minutos en llegar a la Tierra.',
   },
   {
-    id: 't5', nivel: 'Difícil', color: '#FF4444',
+    id: 't5', nivel: 'Difícil', color: '#F44336',
     titulo: 'La fotosíntesis',
-    texto: 'La fotosíntesis es el proceso mediante el cual las plantas algas y algunas bacterias convierten la energía lumínica en energía química almacenada en glucosa. Este proceso ocurre principalmente en los cloroplastos orgánulos que contienen clorofila el pigmento que da el color verde a las plantas. Durante la fotosíntesis las plantas toman dióxido de carbono del aire y agua del suelo y liberan oxígeno como subproducto esencial para la vida.',
+    texto: 'La fotosíntesis es el proceso mediante el cual las plantas, algas y algunas bacterias convierten la energía lumínica en energía química almacenada en glucosa. Este proceso ocurre principalmente en los cloroplastos, orgánulos que contienen clorofila, el pigmento que da el color verde a las plantas. Durante la fotosíntesis las plantas toman dióxido de carbono del aire y agua del suelo, y liberan oxígeno como subproducto esencial para la vida.',
   },
   {
-    id: 't6', nivel: 'Difícil', color: '#FF4444',
-    titulo: 'Inteligencia Artificial en educación',
-    texto: 'La inteligencia artificial está transformando profundamente el campo educativo. Los sistemas adaptativos de aprendizaje pueden analizar el desempeño individual de cada estudiante y ajustar el contenido y la dificultad de los ejercicios en tiempo real permitiendo una experiencia verdaderamente personalizada. Sin embargo la implementación masiva de la inteligencia artificial en las aulas plantea desafíos éticos importantes relacionados con la privacidad de los datos y la equidad en el acceso tecnológico.',
+    id: 't6', nivel: 'Difícil', color: '#F44336',
+    titulo: 'IA en educación',
+    texto: 'La inteligencia artificial está transformando profundamente el campo educativo. Los sistemas adaptativos de aprendizaje pueden analizar el desempeño individual de cada estudiante y ajustar el contenido y la dificultad de los ejercicios en tiempo real, permitiendo una experiencia verdaderamente personalizada. Sin embargo, la implementación masiva de la inteligencia artificial en las aulas plantea desafíos éticos importantes relacionados con la privacidad de los datos y la equidad en el acceso tecnológico.',
   },
 ];
 
-// ── Normalizar palabra para comparación ───────────────────────
-const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+// ── Normalizar para fuzzy matching ────────────────────────────
+const norm = (s = '') =>
+  s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'').trim();
 
-// ── Calcular métricas locales ─────────────────────────────────
-function calcularMetricas(palabrasRef, palabrasLeidas, segundos) {
-  if (!palabrasLeidas.length) return { precision: 0, ppm: 0, fluidez: 0, errores: [] };
-  let correctas = 0;
-  const errores = [];
-  const limite = Math.min(palabrasRef.length, palabrasLeidas.length);
-  for (let i = 0; i < limite; i++) {
-    const a = norm(palabrasRef[i] || '');
-    const b = norm(palabrasLeidas[i] || '');
-    if (a === b) { correctas++; }
-    else { errores.push({ pos: i, esperada: palabrasRef[i], dicha: palabrasLeidas[i] }); }
+// ── Similitud Levenshtein ─────────────────────────────────────
+function similitud(a, b) {
+  const na = norm(a), nb = norm(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  const maxLen = Math.max(na.length, nb.length);
+  const m = Array.from({ length: nb.length + 1 }, (_, i) => [i]);
+  for (let j = 0; j <= na.length; j++) m[0][j] = j;
+  for (let i = 1; i <= nb.length; i++)
+    for (let j = 1; j <= na.length; j++)
+      m[i][j] = nb[i-1] === na[j-1]
+        ? m[i-1][j-1]
+        : 1 + Math.min(m[i-1][j], m[i][j-1], m[i-1][j-1]);
+  return 1 - m[nb.length][na.length] / maxLen;
+}
+
+// ── Fuzzy word tracker: encuentra hasta dónde llegó el alumno ─
+function calcularPosicion(palabrasRef, transcripcion) {
+  const leidas = transcripcion.trim().split(/\s+/).filter(Boolean);
+  if (!leidas.length) return 0;
+  let pos = 0;
+  let li  = 0;
+  while (li < leidas.length && pos < palabrasRef.length) {
+    if (similitud(leidas[li], palabrasRef[pos]) >= 0.70) {
+      pos++;
+      li++;
+    } else {
+      // Buscar hacia adelante en el texto de referencia (omisión)
+      let found = false;
+      for (let look = pos + 1; look < Math.min(pos + 4, palabrasRef.length); look++) {
+        if (similitud(leidas[li], palabrasRef[look]) >= 0.75) {
+          pos = look + 1; li++; found = true; break;
+        }
+      }
+      if (!found) li++;
+    }
   }
-  const precision  = Math.round((correctas / limite) * 100);
-  const ppm        = segundos > 0 ? Math.round((palabrasLeidas.length / segundos) * 60) : 0;
-  const fluidez    = Math.min(100, Math.round((precision * 0.6) + (Math.min(ppm, 120) / 120 * 40)));
-  return { precision, ppm, fluidez, errores };
+  return pos;
 }
 
 const ModoDemoLectura = ({ rol, onSalir }) => {
@@ -78,33 +101,27 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   const grupo       = localStorage.getItem('iapprende_grupo')   || '';
   const escuela     = localStorage.getItem('iapprende_escuela') || '';
 
-  // ── Estado principal ──────────────────────────────────────
-  const [pantalla, setPantalla] = useState('selector'); // selector|practica|resultado|metricas
-  const [textoSel, setTextoSel] = useState(null);
+  const [pantalla, setPantalla]     = useState('selector');
+  const [textoSel, setTextoSel]     = useState(null);
+  const [grabando, setGrabando]     = useState(false);
+  const [transcripcion, setTrans]   = useState('');
+  const [posActual, setPosActual]   = useState(0);
+  const [segundos, setSegundos]     = useState(0);
+  const [resultado, setResultado]   = useState(null);
+  const [micError, setMicError]     = useState('');
+  const [alumnos, setAlumnos]       = useState([]);
+  const [cargMet, setCargMet]       = useState(false);
+  const [periodo, setPeriodo]       = useState('tri1');
 
-  // ── Estado de grabación ───────────────────────────────────
-  const [grabando, setGrabando]         = useState(false);
-  const [transcripcion, setTranscripcion] = useState('');
-  const [palabrasLeidas, setPalabrasLeidas] = useState([]);
-  const [posActual, setPosActual]       = useState(0);
-  const [segundos, setSegundos]         = useState(0);
-  const [completado, setCompletado]     = useState(false);
-  const [resultado, setResultado]       = useState(null);
-
-  // ── Refs ──────────────────────────────────────────────────
-  const recognitionRef = useRef(null);
-  const timerRef       = useRef(null);
-  const palabrasRef    = useRef([]);
-  const transRef       = useRef('');
-  const posRef         = useRef(0);
-
-  // ── Métricas grupo ────────────────────────────────────────
-  const [alumnos, setAlumnos]   = useState([]);
-  const [cargMet, setCargMet]   = useState(false);
-  const [periodo, setPeriodo]   = useState('tri1');
+  const recRef      = useRef(null);
+  const timerRef    = useRef(null);
+  const transRef    = useRef('');
+  const segsRef     = useRef(0);
+  const grabandoRef = useRef(false);
+  const palabrasRef = useRef([]);
 
   const cerrarSesion = async () => {
-    detenerGrabacion();
+    detener();
     await signOut(_auth);
     ['iapprende_rol','iapprende_codigo','iapprende_grupo','iapprende_escuela','iapprende_proyecto']
       .forEach(k => localStorage.removeItem(k));
@@ -112,97 +129,140 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   };
 
   const elegirTexto = (t) => {
-    setTextoSel(t);
     palabrasRef.current = t.texto.split(/\s+/).filter(Boolean);
-    setTranscripcion('');
-    setPalabrasLeidas([]);
-    setPosActual(0);
-    posRef.current = 0;
     transRef.current = '';
+    segsRef.current  = 0;
+    setTextoSel(t);
+    setTrans('');
+    setPosActual(0);
     setSegundos(0);
-    setCompletado(false);
     setResultado(null);
+    setMicError('');
     setPantalla('practica');
   };
 
-  // ── Web Speech API ────────────────────────────────────────
-  const iniciarGrabacion = useCallback(() => {
+  // ── Detener grabación limpiamente ─────────────────────────
+  const detener = useCallback(() => {
+    grabandoRef.current = false;
+    setGrabando(false);
+    if (recRef.current) {
+      try { recRef.current.stop(); } catch(_) {}
+      recRef.current = null;
+    }
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+  }, []);
+
+  // ── Iniciar sesión de reconocimiento ─────────────────────
+  const iniciarSesion = useCallback(() => {
+    if (!grabandoRef.current) return;
+
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome.'); return; }
+    if (!SR) {
+      setMicError('Tu navegador no soporta reconocimiento de voz. Usa Chrome en escritorio.');
+      detener();
+      return;
+    }
 
     const r = new SR();
-    r.continuous        = false;
-    r.interimResults    = true;
-    r.lang              = 'es-MX';
-    r.maxAlternatives   = 1;
+    r.lang            = 'es-MX';
+    r.continuous      = false;
+    r.interimResults  = true;
+    r.maxAlternatives = 1;
+    recRef.current    = r;
 
     r.onresult = (e) => {
-      let texto = '';
-      for (let i = 0; i < e.results.length; i++) texto += e.results[i][0].transcript;
-      transRef.current = (transRef.current + ' ' + texto).trim();
-      setTranscripcion(transRef.current);
+      let parcial = '';
+      for (let i = e.resultIndex; i < e.results.length; i++)
+        parcial += e.results[i][0].transcript;
 
-      // Actualizar posición en el texto
-      const leidas = transRef.current.split(/\s+/).filter(Boolean);
-      setPalabrasLeidas(leidas);
-      posRef.current = Math.min(leidas.length, palabrasRef.current.length);
-      setPosActual(posRef.current);
+      const total = (transRef.current + ' ' + parcial).trim();
+      setTrans(total);
 
-      // ¿Completó el texto?
-      if (leidas.length >= palabrasRef.current.length * 0.9) {
-        terminarLectura(leidas);
+      const pos = calcularPosicion(palabrasRef.current, total);
+      setPosActual(pos);
+
+      // Auto-completar si llegó al 95% del texto
+      if (pos >= palabrasRef.current.length * 0.95) {
+        transRef.current = total;
+        finalizarLectura(total);
       }
     };
 
     r.onend = () => {
-      if (grabando && !completado) {
-        // Reiniciar automáticamente para grabación continua
-        try { r.start(); } catch(_) {}
+      // Guardar lo que hubo hasta ahora
+      if (grabandoRef.current) {
+        // Pequeña pausa antes de reiniciar para evitar loops
+        setTimeout(() => {
+          if (grabandoRef.current) iniciarSesion();
+        }, 200);
       }
     };
 
     r.onerror = (e) => {
-      if (e.error === 'no-speech' || e.error === 'aborted') return;
-      console.warn('SR error:', e.error);
+      if (['no-speech', 'aborted'].includes(e.error)) return;
+      if (e.error === 'not-allowed') {
+        setMicError('Permiso de micrófono denegado. Habilítalo en la configuración del navegador.');
+        detener();
+        return;
+      }
+      // Otros errores: reintentar
+      if (grabandoRef.current) setTimeout(() => { if (grabandoRef.current) iniciarSesion(); }, 500);
     };
 
-    recognitionRef.current = r;
-    try { r.start(); } catch(_) {}
-    setGrabando(true);
-
-    // Timer
-    timerRef.current = setInterval(() => {
-      setSegundos(s => s + 1);
-    }, 1000);
-  }, [grabando, completado]);
-
-  const detenerGrabacion = useCallback(() => {
-    if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch(_) {}
-      recognitionRef.current = null;
+    try { r.start(); }
+    catch(err) {
+      if (grabandoRef.current) setTimeout(() => { if (grabandoRef.current) iniciarSesion(); }, 500);
     }
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
-    setGrabando(false);
-  }, []);
+  }, [detener]);
 
-  const terminarLectura = useCallback((leidas) => {
-    detenerGrabacion();
-    setCompletado(true);
-    const pals = leidas || palabrasLeidas;
-    const met  = calcularMetricas(palabrasRef.current, pals, segundos);
-    setResultado(met);
+  const iniciarGrabacion = useCallback(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      setMicError('Tu navegador no soporta reconocimiento de voz. Usa Chrome en escritorio.');
+      return;
+    }
+    setMicError('');
+    grabandoRef.current = true;
+    setGrabando(true);
+    segsRef.current = 0;
+    setSegundos(0);
+    transRef.current = '';
+    setTrans('');
+    setPosActual(0);
+
+    timerRef.current = setInterval(() => {
+      segsRef.current++;
+      setSegundos(segsRef.current);
+    }, 1000);
+
+    iniciarSesion();
+  }, [iniciarSesion]);
+
+  const finalizarLectura = useCallback((transOverride) => {
+    const trans = transOverride || transRef.current;
+    detener();
+
+    const analisis = analizarLecturaLocal({
+      transcripcion:    trans,
+      textoReferencia:  textoSel?.texto || '',
+      tiempoSegundos:   segsRef.current || 1,
+      modoLectura:      'guiada',
+      modoIdioma:       { leer: 'es' },
+      alumnoNombre:     esAlumno ? `Alumno Grupo ${grupo}` : 'Invitado',
+    });
+
+    setResultado(analisis);
     setPantalla('resultado');
-  }, [palabrasLeidas, segundos, detenerGrabacion]);
+  }, [detener, textoSel, esAlumno, grupo]);
 
   const finalizarManual = () => {
-    const leidas = transRef.current.split(/\s+/).filter(Boolean);
-    terminarLectura(leidas);
+    transRef.current = transcripcion;
+    finalizarLectura(transcripcion);
   };
 
-  useEffect(() => {
-    return () => { detenerGrabacion(); };
-  }, []);
+  useEffect(() => () => { detener(); }, []);
 
+  // ── Métricas grupo ────────────────────────────────────────
   const cargarMetricas = async () => {
     if (!grupo || !escuela) return;
     setCargMet(true);
@@ -215,187 +275,185 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     finally { setCargMet(false); }
   };
 
-  // ── Colores métricas ──────────────────────────────────────
-  const colorMetrica = (v) => v >= 80 ? '#00FF41' : v >= 60 ? '#FFD700' : '#FF4444';
-  const etiqueta = (v) => v >= 80 ? 'Excelente' : v >= 60 ? 'Bien' : 'A mejorar';
-  const minutos  = Math.floor(segundos / 60);
-  const segs     = segundos % 60;
-
-  // ── Palabras coloreadas del texto ─────────────────────────
-  const renderTextoColoreado = () => {
+  // ── Render texto con colores ──────────────────────────────
+  const renderTexto = () => {
     if (!textoSel) return null;
-    const pals = textoSel.texto.split(/\s+/);
-    return pals.map((p, i) => {
-      let color = 'rgba(255,255,255,0.5)';
+    return textoSel.texto.split(/\s+/).map((p, i) => {
+      let color = 'rgba(255,255,255,0.55)';
       let bg    = 'transparent';
-      if (i < posActual) {
-        const a = norm(p), b = norm((palabrasLeidas[i] || ''));
-        color = a === b ? '#00FF41' : '#FF4444';
-      } else if (i === posActual) {
-        bg    = 'rgba(14,165,233,0.25)';
-        color = '#0ea5e9';
+      let bold  = false;
+      if (grabando || resultado) {
+        if (i < posActual) {
+          const leidas = transcripcion.trim().split(/\s+/);
+          const sim = similitud(p, leidas[i] || '');
+          color = sim >= 0.70 ? '#4CAF50' : '#EF5350';
+        } else if (i === posActual && grabando) {
+          bg    = 'rgba(14,165,233,0.2)';
+          color = '#29B6F6';
+          bold  = true;
+        }
       }
       return (
-        <span key={i} style={{ color, background:bg, borderRadius:'3px', padding:'0 2px', transition:'color .2s' }}>
+        <span key={i} style={{ color, background:bg, borderRadius:'3px', padding:'1px 3px', fontWeight:bold?'700':'400', transition:'all .15s' }}>
           {p}{' '}
         </span>
       );
     });
   };
 
+  const colorVal = (v) => v >= 80 ? '#4CAF50' : v >= 60 ? '#FFC107' : '#EF5350';
+  const etiq     = (v) => v >= 80 ? 'Excelente' : v >= 60 ? 'Bien' : 'A mejorar';
+  const min = Math.floor(segundos/60), seg = segundos%60;
+
   return (
-    <div style={{ background:'#050c1a', minHeight:'100vh', color:'#fff', fontFamily:'Georgia, serif', display:'flex', flexDirection:'column' }}>
+    <div style={{ position:'fixed', inset:0, background:'#050c1a', color:'#fff', fontFamily:'system-ui, sans-serif', display:'flex', flexDirection:'column', overflow:'hidden' }}>
 
       {/* ── HEADER ── */}
-      <header style={{ display:'flex', alignItems:'center', gap:'10px', padding:'8px 16px', background:'rgba(0,0,0,0.7)', borderBottom:'1px solid rgba(14,165,233,0.25)', flexShrink:0, flexWrap:'wrap' }}>
-        <span style={{ color:'#0ea5e9', fontWeight:'bold', fontSize:'0.88rem' }}>📖 Lectura con IA</span>
+      <header style={{ display:'flex', alignItems:'center', gap:'8px', padding:'8px 14px', background:'rgba(0,0,0,0.75)', borderBottom:'1px solid rgba(14,165,233,0.2)', flexShrink:0, flexWrap:'wrap' }}>
+        <span style={{ color:'#29B6F6', fontWeight:'700', fontSize:'0.85rem' }}>📖 Lectura con IA</span>
 
-        {/* Badge de rol + datos del alumno */}
-        <div style={{ display:'flex', alignItems:'center', gap:'6px', background: esAlumno?'rgba(0,255,65,0.1)':'rgba(0,255,255,0.1)', border:`1px solid ${esAlumno?'#00FF41':'#00FFFF'}33`, borderRadius:'100px', padding:'3px 10px' }}>
-          <span style={{ fontSize:'0.72rem', color: esAlumno?'#00FF41':'#00FFFF', fontWeight:'600', fontFamily:'system-ui' }}>
+        <div style={{ display:'flex', alignItems:'center', gap:'5px', background:esAlumno?'rgba(76,175,80,0.12)':'rgba(41,182,246,0.1)', border:`1px solid ${esAlumno?'#4CAF5044':'#29B6F644'}`, borderRadius:'100px', padding:'2px 10px' }}>
+          <span style={{ fontSize:'0.68rem', color:esAlumno?'#4CAF50':'#29B6F6', fontWeight:'600' }}>
             {esAlumno ? '🎒 ALUMNO' : '🌐 INVITADO'}
           </span>
         </div>
 
-        {/* Info escuela/grupo — siempre visible si existe */}
         {esAlumno && grupo && (
-          <div style={{ display:'flex', alignItems:'center', gap:'6px', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'100px', padding:'3px 12px' }}>
-            <span style={{ fontSize:'0.68rem', color:'rgba(255,255,255,0.6)', fontFamily:'system-ui' }}>
-              🏫 {escuela}
-            </span>
-            <span style={{ fontSize:'0.68rem', color:'rgba(255,255,255,0.3)', fontFamily:'system-ui' }}>·</span>
-            <span style={{ fontSize:'0.68rem', color:'#0ea5e9', fontFamily:'system-ui', fontWeight:'600' }}>
-              Grupo {grupo}
-            </span>
+          <div style={{ display:'flex', alignItems:'center', gap:'5px', background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'100px', padding:'2px 10px' }}>
+            <span style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.5)' }}>🏫 {escuela}</span>
+            <span style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.25)' }}>·</span>
+            <span style={{ fontSize:'0.65rem', color:'#29B6F6', fontWeight:'600' }}>Gpo {grupo}</span>
           </div>
         )}
 
         <div style={{ flex:1 }}/>
 
-        {pantalla === 'practica' && grabando && (
-          <span style={{ fontFamily:'monospace', color:'#FF4444', fontSize:'0.85rem', animation:'pulse 1s infinite' }}>
-            🔴 {minutos}:{String(segs).padStart(2,'0')}
+        {grabando && (
+          <span style={{ fontFamily:'monospace', color:'#EF5350', fontSize:'0.82rem' }}>
+            🔴 {min}:{String(seg).padStart(2,'0')}
           </span>
         )}
 
         {pantalla !== 'selector' && (
-          <button onClick={() => { detenerGrabacion(); setPantalla('selector'); }}
-            style={{ background:'rgba(255,200,0,0.12)', border:'1px solid #FFC80033', borderRadius:'6px', color:'#FFC800', fontSize:'0.65rem', padding:'3px 10px', cursor:'pointer', fontFamily:'system-ui' }}>
+          <button onClick={() => { detener(); setPantalla('selector'); }}
+            style={{ background:'rgba(255,193,7,0.1)', border:'1px solid #FFC10733', borderRadius:'6px', color:'#FFC107', fontSize:'0.62rem', padding:'3px 9px', cursor:'pointer' }}>
             ← Textos
           </button>
         )}
-
         {esAlumno && grupo && pantalla !== 'metricas' && (
-          <button onClick={() => { setPantalla('metricas'); cargarMetricas(); }}
-            style={{ background:'rgba(0,255,65,0.08)', border:'1px solid #00FF4133', borderRadius:'6px', color:'#00FF41', fontSize:'0.65rem', padding:'3px 10px', cursor:'pointer', fontFamily:'system-ui' }}>
+          <button onClick={() => { detener(); setPantalla('metricas'); cargarMetricas(); }}
+            style={{ background:'rgba(76,175,80,0.08)', border:'1px solid #4CAF5033', borderRadius:'6px', color:'#4CAF50', fontSize:'0.62rem', padding:'3px 9px', cursor:'pointer' }}>
             📊 Métricas
           </button>
         )}
-
         <button onClick={cerrarSesion}
-          style={{ background:'rgba(255,69,58,0.12)', border:'1px solid rgba(255,69,58,0.25)', borderRadius:'6px', color:'#ff453a', fontSize:'0.65rem', padding:'3px 10px', cursor:'pointer', fontFamily:'system-ui' }}>
+          style={{ background:'rgba(239,83,80,0.1)', border:'1px solid rgba(239,83,80,0.25)', borderRadius:'6px', color:'#EF5350', fontSize:'0.62rem', padding:'3px 9px', cursor:'pointer' }}>
           Salir
         </button>
       </header>
 
-      <div style={{ flex:1, overflowY:'auto', padding:'24px 16px', display:'flex', flexDirection:'column', alignItems:'center', gap:'20px' }}>
+      {/* ── CONTENIDO ── */}
+      <div style={{ flex:1, overflowY:'auto', padding:'20px 16px', display:'flex', flexDirection:'column', alignItems:'center', gap:'18px' }}>
 
-        {/* ══ SELECTOR DE TEXTOS ══ */}
+        {/* ══ SELECTOR ══ */}
         {pantalla === 'selector' && (
           <>
-            <div style={{ textAlign:'center', maxWidth:'640px' }}>
-              <div style={{ fontSize:'2.5rem', marginBottom:'8px' }}>📚</div>
-              <h2 style={{ color:'#0ea5e9', fontSize:'clamp(1.2rem,3vw,1.8rem)', margin:'0 0 8px' }}>Práctica de Lectura</h2>
-              <p style={{ color:'rgba(255,255,255,0.45)', fontFamily:'system-ui', fontSize:'0.88rem', margin:'0 0 12px', lineHeight:1.6 }}>
+            <div style={{ textAlign:'center', maxWidth:'680px' }}>
+              <div style={{ fontSize:'2.2rem', marginBottom:'8px' }}>📚</div>
+              <h2 style={{ color:'#29B6F6', fontSize:'clamp(1.1rem,3vw,1.7rem)', margin:'0 0 8px', fontFamily:'Georgia, serif' }}>Práctica de Lectura</h2>
+              <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'0.85rem', margin:'0 0 12px', lineHeight:1.6 }}>
                 {esAlumno
-                  ? 'Lee el texto en voz alta. El motor analiza tu fluidez, precisión y velocidad en tiempo real usando análisis local.'
-                  : 'Modo demo: practica lectura en voz alta con análisis local automático.'}
+                  ? 'Lee el texto en voz alta. El motor analiza tu fluidez, precisión y velocidad usando análisis local en tiempo real.'
+                  : 'Modo demo: practica lectura en voz alta con análisis automático local.'}
               </p>
-              {/* Banner IA */}
-              <div style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.25)', borderRadius:'12px', padding:'12px 16px', display:'flex', alignItems:'flex-start', gap:'10px', textAlign:'left' }}>
-                <span style={{ fontSize:'1.2rem', flexShrink:0 }}>🤖</span>
+              <div style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:'12px', padding:'12px 14px', display:'flex', alignItems:'flex-start', gap:'10px', textAlign:'left' }}>
+                <span style={{ fontSize:'1.1rem', flexShrink:0 }}>🤖</span>
                 <div>
-                  <p style={{ color:'#a78bfa', fontFamily:'system-ui', fontSize:'0.78rem', fontWeight:'700', margin:'0 0 2px' }}>
-                    Análisis con IA en tiempo real — disponible en clases autorizadas
+                  <p style={{ color:'#a78bfa', fontSize:'0.74rem', fontWeight:'700', margin:'0 0 2px' }}>
+                    Análisis con IA — disponible en clases autorizadas por docentes
                   </p>
-                  <p style={{ color:'rgba(255,255,255,0.35)', fontFamily:'system-ui', fontSize:'0.72rem', margin:0, lineHeight:1.5 }}>
-                    El modo completo incluye retroalimentación de Claude IA, análisis semántico profundo, generación automática de textos personalizados y métricas avanzadas de comprensión. Disponible para docentes con acceso institucional @jaliscoedu.mx.
+                  <p style={{ color:'rgba(255,255,255,0.3)', fontSize:'0.68rem', margin:0, lineHeight:1.5 }}>
+                    El modo completo incluye retroalimentación de Claude IA, análisis semántico, generación de textos adaptativos y reporte detallado para el docente.
                   </p>
                 </div>
               </div>
             </div>
 
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))', gap:'14px', width:'100%', maxWidth:'860px' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))', gap:'12px', width:'100%', maxWidth:'820px' }}>
               {TEXTOS.map(t => (
                 <button key={t.id} onClick={() => elegirTexto(t)}
-                  style={{ background:'rgba(14,165,233,0.05)', border:`2px solid ${t.color}33`, borderRadius:'16px', padding:'18px', textAlign:'left', cursor:'pointer', color:'#fff', transition:'all .2s', display:'flex', flexDirection:'column', gap:'8px' }}
+                  style={{ background:'rgba(14,165,233,0.04)', border:`2px solid ${t.color}33`, borderRadius:'14px', padding:'16px', textAlign:'left', cursor:'pointer', color:'#fff', transition:'all .2s', display:'flex', flexDirection:'column', gap:'7px' }}
                   onMouseOver={e => { e.currentTarget.style.borderColor=t.color; e.currentTarget.style.background='rgba(14,165,233,0.1)'; e.currentTarget.style.transform='translateY(-3px)'; }}
-                  onMouseOut={e  => { e.currentTarget.style.borderColor=t.color+'33'; e.currentTarget.style.background='rgba(14,165,233,0.05)'; e.currentTarget.style.transform='translateY(0)'; }}>
+                  onMouseOut={e  => { e.currentTarget.style.borderColor=t.color+'33'; e.currentTarget.style.background='rgba(14,165,233,0.04)'; e.currentTarget.style.transform='translateY(0)'; }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <span style={{ background:t.color+'22', border:`1px solid ${t.color}55`, borderRadius:'100px', padding:'2px 10px', fontSize:'0.68rem', fontWeight:'700', color:t.color, fontFamily:'system-ui' }}>{t.nivel}</span>
-                    <span style={{ fontSize:'0.68rem', color:'rgba(255,255,255,0.3)', fontFamily:'system-ui' }}>{t.texto.split(/\s+/).length} palabras</span>
+                    <span style={{ background:t.color+'22', border:`1px solid ${t.color}55`, borderRadius:'100px', padding:'2px 9px', fontSize:'0.65rem', fontWeight:'700', color:t.color }}>{t.nivel}</span>
+                    <span style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.3)' }}>{t.texto.split(/\s+/).length} palabras</span>
                   </div>
-                  <div style={{ fontWeight:'700', fontSize:'0.95rem', color:'#0ea5e9' }}>{t.titulo}</div>
-                  <div style={{ fontSize:'0.75rem', color:'rgba(255,255,255,0.4)', fontFamily:'system-ui', lineHeight:1.5 }}>
-                    {t.texto.substring(0,90)}...
-                  </div>
-                  <div style={{ display:'flex', alignItems:'center', gap:'6px', marginTop:'4px' }}>
-                    <span style={{ fontSize:'0.7rem', color:'rgba(255,255,255,0.3)', fontFamily:'system-ui' }}>🎙️ Análisis local en tiempo real</span>
+                  <div style={{ fontWeight:'700', fontSize:'0.9rem', color:'#29B6F6', fontFamily:'Georgia, serif' }}>{t.titulo}</div>
+                  <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.38)', lineHeight:1.5 }}>
+                    {t.texto.substring(0,85)}...
                   </div>
                 </button>
               ))}
             </div>
 
             {!esAlumno && (
-              <div style={{ background:'rgba(0,255,255,0.04)', border:'1px solid rgba(0,255,255,0.12)', borderRadius:'10px', padding:'12px 18px', maxWidth:'480px', textAlign:'center' }}>
-                <p style={{ color:'rgba(255,255,255,0.4)', fontFamily:'system-ui', fontSize:'0.8rem', margin:0 }}>
-                  💡 Solicita un código a tu docente para acceder a métricas del grupo y análisis completo con IA.
+              <div style={{ background:'rgba(41,182,246,0.04)', border:'1px solid rgba(41,182,246,0.12)', borderRadius:'10px', padding:'10px 16px', maxWidth:'460px', textAlign:'center' }}>
+                <p style={{ color:'rgba(255,255,255,0.38)', fontSize:'0.78rem', margin:0 }}>
+                  💡 Solicita un código a tu docente para acceder a métricas del grupo y análisis completo.
                 </p>
               </div>
             )}
 
             <button onClick={cerrarSesion}
-              style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'8px', color:'rgba(255,255,255,0.3)', fontSize:'0.72rem', padding:'7px 18px', cursor:'pointer', fontFamily:'system-ui' }}>
+              style={{ background:'transparent', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'8px', color:'rgba(255,255,255,0.3)', fontSize:'0.7rem', padding:'6px 16px', cursor:'pointer' }}>
               ← Volver al inicio
             </button>
           </>
         )}
 
-        {/* ══ PRÁCTICA DE LECTURA ══ */}
+        {/* ══ PRÁCTICA ══ */}
         {pantalla === 'practica' && textoSel && (
-          <div style={{ width:'100%', maxWidth:'760px', display:'flex', flexDirection:'column', gap:'16px' }}>
+          <div style={{ width:'100%', maxWidth:'740px', display:'flex', flexDirection:'column', gap:'14px' }}>
 
-            {/* Título y nivel */}
-            <div style={{ display:'flex', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
-              <span style={{ background:textoSel.color+'22', border:`1px solid ${textoSel.color}55`, borderRadius:'100px', padding:'3px 12px', fontSize:'0.7rem', fontWeight:'700', color:textoSel.color, fontFamily:'system-ui' }}>{textoSel.nivel}</span>
-              <h2 style={{ color:'#0ea5e9', margin:0, fontSize:'1.3rem' }}>{textoSel.titulo}</h2>
+            <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap' }}>
+              <span style={{ background:textoSel.color+'22', border:`1px solid ${textoSel.color}55`, borderRadius:'100px', padding:'2px 10px', fontSize:'0.66rem', fontWeight:'700', color:textoSel.color }}>{textoSel.nivel}</span>
+              <h2 style={{ color:'#29B6F6', margin:0, fontSize:'1.2rem', fontFamily:'Georgia, serif' }}>{textoSel.titulo}</h2>
+              {grabando && (
+                <span style={{ marginLeft:'auto', fontSize:'0.72rem', color:'rgba(255,255,255,0.4)' }}>
+                  {posActual}/{palabrasRef.current.length} palabras
+                </span>
+              )}
             </div>
 
-            {/* Instrucción */}
-            {!grabando && !completado && (
-              <div style={{ background:'rgba(14,165,233,0.08)', border:'1px solid rgba(14,165,233,0.2)', borderRadius:'10px', padding:'12px 16px', fontFamily:'system-ui', fontSize:'0.82rem', color:'rgba(255,255,255,0.6)', lineHeight:1.6 }}>
-                📋 <strong style={{ color:'#0ea5e9' }}>Instrucciones:</strong> Lee el texto en voz alta a un ritmo natural. Las palabras se irán coloreando en verde (correctas) o rojo (error). Cuando termines, presiona "Finalizar".
+            {!grabando && !resultado && (
+              <div style={{ background:'rgba(41,182,246,0.07)', border:'1px solid rgba(41,182,246,0.18)', borderRadius:'10px', padding:'10px 14px', fontSize:'0.78rem', color:'rgba(255,255,255,0.55)', lineHeight:1.6 }}>
+                🎙️ Presiona <strong style={{ color:'#29B6F6' }}>Iniciar lectura</strong> y lee el texto en voz alta a ritmo natural. Las palabras se colorearán conforme avances.
+              </div>
+            )}
+
+            {micError && (
+              <div style={{ background:'rgba(239,83,80,0.08)', border:'1px solid rgba(239,83,80,0.25)', borderRadius:'10px', padding:'10px 14px', fontSize:'0.78rem', color:'#EF9A9A' }}>
+                ⚠️ {micError}
               </div>
             )}
 
             {/* Texto coloreado */}
-            <div style={{ background:'rgba(255,255,255,0.03)', border:'1px solid rgba(255,255,255,0.08)', borderRadius:'14px', padding:'24px', lineHeight:2.0, fontSize:'1.1rem', letterSpacing:'0.01em' }}>
-              {grabando || completado ? renderTextoColoreado() : (
-                <span style={{ color:'rgba(255,255,255,0.6)' }}>{textoSel.texto}</span>
-              )}
+            <div style={{ background:'rgba(255,255,255,0.025)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'20px', lineHeight:2.1, fontSize:'1.05rem', letterSpacing:'0.01em', minHeight:'140px' }}>
+              {renderTexto()}
             </div>
 
-            {/* Métricas en tiempo real */}
+            {/* Métricas en vivo */}
             {grabando && (
-              <div style={{ display:'flex', gap:'12px', flexWrap:'wrap', justifyContent:'center' }}>
+              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
                 {[
-                  { label:'Palabras leídas', valor: posActual, total: palabrasRef.current.length, unit:'' },
-                  { label:'Tiempo', valor: `${minutos}:${String(segs).padStart(2,'0')}`, unit:'' },
-                  { label:'Velocidad aprox.', valor: segundos > 5 ? Math.round((posActual/segundos)*60) : '--', unit:' PPM' },
+                  { l:'Tiempo',    v:`${min}:${String(seg).padStart(2,'0')}`, c:'#29B6F6' },
+                  { l:'Palabras',  v:`${posActual}/${palabrasRef.current.length}`, c:'#4CAF50' },
+                  { l:'Velocidad', v: segundos>5 ? `${Math.round((posActual/segundos)*60)} PPM` : '--', c:'#FFC107' },
                 ].map((m,i) => (
-                  <div key={i} style={{ background:'rgba(0,0,0,0.4)', border:'1px solid rgba(14,165,233,0.2)', borderRadius:'10px', padding:'10px 16px', textAlign:'center', minWidth:'110px' }}>
-                    <div style={{ fontSize:'1.3rem', fontWeight:'bold', color:'#0ea5e9', fontFamily:'system-ui' }}>{m.valor}{m.unit}</div>
-                    <div style={{ fontSize:'0.68rem', color:'rgba(255,255,255,0.4)', fontFamily:'system-ui', marginTop:'2px' }}>{m.label}</div>
+                  <div key={i} style={{ background:'rgba(0,0,0,0.35)', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'10px', padding:'8px 14px', textAlign:'center', flex:1, minWidth:'90px' }}>
+                    <div style={{ fontSize:'1.1rem', fontWeight:'bold', color:m.c }}>{m.v}</div>
+                    <div style={{ fontSize:'0.62rem', color:'rgba(255,255,255,0.35)', marginTop:'2px' }}>{m.l}</div>
                   </div>
                 ))}
               </div>
@@ -403,30 +461,30 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
 
             {/* Transcripción en vivo */}
             {grabando && transcripcion && (
-              <div style={{ background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.06)', borderRadius:'10px', padding:'12px 16px' }}>
-                <p style={{ margin:'0 0 4px', fontSize:'0.65rem', color:'rgba(255,255,255,0.3)', fontFamily:'system-ui', letterSpacing:'0.1em' }}>ESCUCHANDO...</p>
-                <p style={{ margin:0, fontSize:'0.82rem', color:'rgba(255,255,255,0.55)', fontFamily:'system-ui', lineHeight:1.5, fontStyle:'italic' }}>
-                  "{transcripcion.split(' ').slice(-20).join(' ')}"
+              <div style={{ background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:'10px', padding:'10px 14px' }}>
+                <p style={{ margin:'0 0 3px', fontSize:'0.6rem', color:'rgba(255,255,255,0.25)', letterSpacing:'0.1em' }}>ESCUCHANDO...</p>
+                <p style={{ margin:0, fontSize:'0.78rem', color:'rgba(255,255,255,0.45)', lineHeight:1.5, fontStyle:'italic' }}>
+                  "{transcripcion.split(' ').slice(-15).join(' ')}"
                 </p>
               </div>
             )}
 
             {/* Botones */}
-            <div style={{ display:'flex', gap:'12px', justifyContent:'center', flexWrap:'wrap' }}>
-              {!grabando && !completado && (
+            <div style={{ display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap' }}>
+              {!grabando && (
                 <button onClick={iniciarGrabacion}
-                  style={{ background:'#0ea5e9', color:'#fff', border:'none', borderRadius:'12px', padding:'14px 36px', fontSize:'1rem', fontWeight:'700', cursor:'pointer', fontFamily:'system-ui', boxShadow:'0 0 20px rgba(14,165,233,0.4)', display:'flex', alignItems:'center', gap:'8px' }}>
+                  style={{ background:'#29B6F6', color:'#000', border:'none', borderRadius:'10px', padding:'12px 32px', fontSize:'0.95rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px', boxShadow:'0 0 18px rgba(41,182,246,0.35)' }}>
                   🎙️ Iniciar lectura
                 </button>
               )}
               {grabando && (
                 <>
                   <button onClick={finalizarManual}
-                    style={{ background:'#00FF41', color:'#000', border:'none', borderRadius:'12px', padding:'14px 36px', fontSize:'1rem', fontWeight:'700', cursor:'pointer', fontFamily:'system-ui', display:'flex', alignItems:'center', gap:'8px' }}>
+                    style={{ background:'#4CAF50', color:'#000', border:'none', borderRadius:'10px', padding:'12px 28px', fontSize:'0.92rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px' }}>
                     ✅ Finalizar
                   </button>
-                  <button onClick={detenerGrabacion}
-                    style={{ background:'rgba(255,69,58,0.15)', border:'2px solid #ff453a', borderRadius:'12px', padding:'14px 24px', fontSize:'0.9rem', fontWeight:'600', cursor:'pointer', fontFamily:'system-ui', color:'#ff453a' }}>
+                  <button onClick={detener}
+                    style={{ background:'rgba(239,83,80,0.12)', border:'2px solid #EF5350', borderRadius:'10px', padding:'12px 20px', fontSize:'0.85rem', fontWeight:'600', cursor:'pointer', color:'#EF5350' }}>
                     ⏹ Pausar
                   </button>
                 </>
@@ -437,123 +495,132 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
 
         {/* ══ RESULTADO ══ */}
         {pantalla === 'resultado' && resultado && (
-          <div style={{ width:'100%', maxWidth:'620px', display:'flex', flexDirection:'column', alignItems:'center', gap:'20px' }}>
+          <div style={{ width:'100%', maxWidth:'600px', display:'flex', flexDirection:'column', alignItems:'center', gap:'16px' }}>
             <div style={{ textAlign:'center' }}>
-              <div style={{ fontSize:'3.5rem', marginBottom:'8px' }}>
-                {resultado.fluidez >= 80 ? '🏆' : resultado.fluidez >= 60 ? '👍' : '📚'}
+              <div style={{ fontSize:'3rem', marginBottom:'6px' }}>
+                {(resultado.calificacionFinal||0) >= 8 ? '🏆' : (resultado.calificacionFinal||0) >= 6 ? '👍' : '📚'}
               </div>
-              <h2 style={{ color:'#0ea5e9', margin:'0 0 4px', fontSize:'1.6rem' }}>Análisis completado</h2>
-              <p style={{ color:'rgba(255,255,255,0.4)', fontFamily:'system-ui', fontSize:'0.82rem', margin:0 }}>
-                {textoSel.titulo} · {minutos}:{String(segs).padStart(2,'0')} de lectura
+              <h2 style={{ color:'#29B6F6', margin:'0 0 4px', fontSize:'1.5rem', fontFamily:'Georgia, serif' }}>Análisis completado</h2>
+              <p style={{ color:'rgba(255,255,255,0.35)', fontSize:'0.78rem', margin:0 }}>
+                {textoSel?.titulo} · {min}:{String(seg).padStart(2,'0')} · {resultado.numeroPalabras||0} palabras
               </p>
             </div>
 
-            {/* Métricas principales */}
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'12px', width:'100%' }}>
-              {[
-                { label:'Precisión', valor: resultado.precision, unit:'%', desc:'Palabras correctas' },
-                { label:'Velocidad', valor: resultado.ppm, unit:' PPM', desc:'Palabras por minuto' },
-                { label:'Fluidez', valor: resultado.fluidez, unit:'%', desc:'Índice general' },
-              ].map((m,i) => (
-                <div key={i} style={{ background:'rgba(0,0,0,0.4)', border:`1px solid ${colorMetrica(m.valor)}44`, borderRadius:'14px', padding:'16px', textAlign:'center' }}>
-                  <div style={{ fontSize:'2rem', fontWeight:'900', color:colorMetrica(m.valor), fontFamily:'system-ui' }}>{m.valor}{m.unit}</div>
-                  <div style={{ fontSize:'0.78rem', color:colorMetrica(m.valor), fontFamily:'system-ui', fontWeight:'600', margin:'2px 0' }}>{etiqueta(m.valor)}</div>
-                  <div style={{ fontSize:'0.65rem', color:'rgba(255,255,255,0.35)', fontFamily:'system-ui' }}>{m.desc}</div>
-                </div>
-              ))}
+            {/* Calificación general */}
+            <div style={{ background:'rgba(0,0,0,0.4)', border:`2px solid ${colorVal((resultado.calificacionFinal||0)*10)}55`, borderRadius:'16px', padding:'16px 24px', textAlign:'center', width:'100%' }}>
+              <div style={{ fontSize:'3.5rem', fontWeight:'900', color:colorVal((resultado.calificacionFinal||0)*10) }}>
+                {resultado.calificacionFinal || 0}<span style={{ fontSize:'1.5rem', opacity:0.6 }}>/10</span>
+              </div>
+              <div style={{ fontSize:'0.85rem', color:'rgba(255,255,255,0.5)', marginTop:'4px' }}>{resultado.comentarioGeneral || ''}</div>
+              <div style={{ fontSize:'0.72rem', color:'rgba(255,255,255,0.25)', marginTop:'4px' }}>
+                {resultado.palabrasPorMinuto||0} PPM · Análisis local
+              </div>
             </div>
 
-            {/* Errores */}
-            {resultado.errores.length > 0 && (
-              <div style={{ width:'100%', background:'rgba(255,69,58,0.06)', border:'1px solid rgba(255,69,58,0.2)', borderRadius:'12px', padding:'16px' }}>
-                <p style={{ margin:'0 0 10px', fontSize:'0.75rem', color:'#ff453a', fontFamily:'system-ui', fontWeight:'700', letterSpacing:'0.08em' }}>
-                  PALABRAS A MEJORAR ({Math.min(resultado.errores.length, 5)} de {resultado.errores.length})
-                </p>
-                <div style={{ display:'flex', flexWrap:'wrap', gap:'8px' }}>
-                  {resultado.errores.slice(0,5).map((e,i) => (
-                    <div key={i} style={{ background:'rgba(0,0,0,0.3)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:'8px', padding:'6px 10px', fontFamily:'system-ui', fontSize:'0.78rem' }}>
-                      <span style={{ color:'#ff453a' }}>{e.dicha || '(omitida)'}</span>
-                      <span style={{ color:'rgba(255,255,255,0.3)', margin:'0 4px' }}>→</span>
-                      <span style={{ color:'#00FF41' }}>{e.esperada}</span>
-                    </div>
-                  ))}
-                </div>
+            {/* Categorías */}
+            {resultado.precision && (
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(130px,1fr))', gap:'10px', width:'100%' }}>
+                {[
+                  { l:'Precisión',    v: resultado.precision?.puntuacion,   c: resultado.precision?.comentario },
+                  { l:'Fluidez',      v: resultado.fluidez?.puntuacion,     c: resultado.fluidez?.comentario },
+                  { l:'Dicción',      v: resultado.diccion?.puntuacion,     c: resultado.diccion?.comentario },
+                  { l:'Pausas',       v: resultado.pausas?.puntuacion,      c: resultado.pausas?.comentario },
+                  { l:'Expresividad', v: resultado.expresividad?.puntuacion,c: resultado.expresividad?.comentario },
+                ].filter(m => m.v !== undefined).map((m,i) => (
+                  <div key={i} style={{ background:'rgba(0,0,0,0.3)', border:`1px solid ${colorVal(m.v*10)}33`, borderRadius:'10px', padding:'10px', textAlign:'center' }}>
+                    <div style={{ fontSize:'1.4rem', fontWeight:'bold', color:colorVal(m.v*10) }}>{m.v}<span style={{ fontSize:'0.7rem', opacity:0.5 }}>/10</span></div>
+                    <div style={{ fontSize:'0.62rem', color:colorVal(m.v*10), fontWeight:'600', margin:'1px 0' }}>{m.l}</div>
+                    <div style={{ fontSize:'0.6rem', color:'rgba(255,255,255,0.3)', lineHeight:1.4 }}>{(m.c||'').substring(0,60)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Fortalezas y áreas */}
+            {(resultado.fortalezas?.length > 0 || resultado.areasAMejorar?.length > 0) && (
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px', width:'100%' }}>
+                {resultado.fortalezas?.length > 0 && (
+                  <div style={{ background:'rgba(76,175,80,0.06)', border:'1px solid rgba(76,175,80,0.2)', borderRadius:'10px', padding:'12px' }}>
+                    <p style={{ margin:'0 0 8px', fontSize:'0.65rem', color:'#4CAF50', fontWeight:'700', letterSpacing:'0.08em' }}>✅ FORTALEZAS</p>
+                    {resultado.fortalezas.map((f,i) => <p key={i} style={{ margin:'0 0 4px', fontSize:'0.72rem', color:'rgba(255,255,255,0.55)', lineHeight:1.4 }}>· {f}</p>)}
+                  </div>
+                )}
+                {resultado.areasAMejorar?.length > 0 && (
+                  <div style={{ background:'rgba(239,83,80,0.06)', border:'1px solid rgba(239,83,80,0.2)', borderRadius:'10px', padding:'12px' }}>
+                    <p style={{ margin:'0 0 8px', fontSize:'0.65rem', color:'#EF5350', fontWeight:'700', letterSpacing:'0.08em' }}>📈 A MEJORAR</p>
+                    {resultado.areasAMejorar.map((a,i) => <p key={i} style={{ margin:'0 0 4px', fontSize:'0.72rem', color:'rgba(255,255,255,0.55)', lineHeight:1.4 }}>· {a}</p>)}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Banner IA */}
-            <div style={{ background:'rgba(99,102,241,0.08)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:'12px', padding:'14px 16px', display:'flex', alignItems:'flex-start', gap:'10px', width:'100%' }}>
-              <span style={{ fontSize:'1.1rem', flexShrink:0 }}>🤖</span>
+            <div style={{ background:'rgba(99,102,241,0.06)', border:'1px solid rgba(99,102,241,0.18)', borderRadius:'10px', padding:'12px 14px', display:'flex', gap:'10px', width:'100%' }}>
+              <span style={{ fontSize:'1rem', flexShrink:0 }}>🤖</span>
               <div>
-                <p style={{ color:'#a78bfa', fontFamily:'system-ui', fontSize:'0.75rem', fontWeight:'700', margin:'0 0 2px' }}>
-                  Análisis con IA — solo en clases autorizadas por docentes
-                </p>
-                <p style={{ color:'rgba(255,255,255,0.3)', fontFamily:'system-ui', fontSize:'0.7rem', margin:0, lineHeight:1.5 }}>
-                  El modo completo incluye retroalimentación semántica de Claude IA, análisis de entonación, detección de pausas, generación de textos adaptativos y reporte para el docente.
+                <p style={{ color:'#a78bfa', fontSize:'0.72rem', fontWeight:'700', margin:'0 0 2px' }}>Análisis con IA — solo en clases autorizadas</p>
+                <p style={{ color:'rgba(255,255,255,0.28)', fontSize:'0.67rem', margin:0, lineHeight:1.5 }}>
+                  Con acceso docente obtienes retroalimentación de Claude IA, análisis semántico profundo, textos adaptativos y reporte completo para el grupo.
                 </p>
               </div>
             </div>
 
-            {!esAlumno && <p style={{ color:'rgba(255,255,255,0.2)', fontFamily:'system-ui', fontSize:'0.72rem', margin:0 }}>Modo invitado — análisis no guardado</p>}
+            {!esAlumno && <p style={{ color:'rgba(255,255,255,0.18)', fontSize:'0.68rem', margin:0 }}>Modo invitado — análisis no guardado</p>}
 
-            <div style={{ display:'flex', gap:'12px', flexWrap:'wrap', justifyContent:'center' }}>
+            <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', justifyContent:'center' }}>
               <button onClick={() => elegirTexto(textoSel)}
-                style={{ background:'rgba(14,165,233,0.12)', border:'2px solid #0ea5e9', borderRadius:'10px', color:'#0ea5e9', fontFamily:'system-ui', fontSize:'0.85rem', padding:'11px 22px', cursor:'pointer', fontWeight:'600' }}>
-                🔄 Releer texto
+                style={{ background:'rgba(41,182,246,0.1)', border:'2px solid #29B6F6', borderRadius:'9px', color:'#29B6F6', fontSize:'0.82rem', padding:'10px 20px', cursor:'pointer', fontWeight:'600' }}>
+                🔄 Releer
               </button>
               <button onClick={() => setPantalla('selector')}
-                style={{ background:'rgba(255,255,255,0.06)', border:'1px solid rgba(255,255,255,0.15)', borderRadius:'10px', color:'#fff', fontFamily:'system-ui', fontSize:'0.85rem', padding:'11px 22px', cursor:'pointer' }}>
+                style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.12)', borderRadius:'9px', color:'#fff', fontSize:'0.82rem', padding:'10px 20px', cursor:'pointer' }}>
                 📚 Otros textos
               </button>
             </div>
           </div>
         )}
 
-        {/* ══ MÉTRICAS GRUPO (solo alumno) ══ */}
+        {/* ══ MÉTRICAS GRUPO ══ */}
         {pantalla === 'metricas' && esAlumno && (
-          <div style={{ width:'100%', maxWidth:'560px', display:'flex', flexDirection:'column', gap:'16px' }}>
+          <div style={{ width:'100%', maxWidth:'540px', display:'flex', flexDirection:'column', gap:'14px' }}>
             <div style={{ textAlign:'center' }}>
-              <h2 style={{ color:'#00FF41', fontFamily:'system-ui', fontSize:'1.5rem', margin:'0 0 4px', fontWeight:'700' }}>📊 Métricas del Grupo</h2>
-              <p style={{ color:'rgba(255,255,255,0.35)', fontFamily:'system-ui', fontSize:'0.82rem', margin:0 }}>{escuela} · Grupo {grupo} · 🔒 Solo lectura</p>
+              <h2 style={{ color:'#4CAF50', fontSize:'1.4rem', margin:'0 0 4px', fontFamily:'Georgia, serif' }}>📊 Métricas del Grupo</h2>
+              <p style={{ color:'rgba(255,255,255,0.3)', fontSize:'0.78rem', margin:0 }}>{escuela} · Grupo {grupo} · 🔒 Solo lectura</p>
             </div>
-            <div style={{ display:'flex', gap:'8px', flexWrap:'wrap', justifyContent:'center' }}>
+            <div style={{ display:'flex', gap:'7px', flexWrap:'wrap', justifyContent:'center' }}>
               {[{id:'tri1',l:'Tri 1'},{id:'tri2',l:'Tri 2'},{id:'tri3',l:'Tri 3'}].map(p => (
                 <button key={p.id} onClick={() => { setPeriodo(p.id); cargarMetricas(); }}
-                  style={{ padding:'5px 12px', borderRadius:'100px', border:`1px solid ${periodo===p.id?'#00FF41':'rgba(255,255,255,0.2)'}`, background:periodo===p.id?'rgba(0,255,65,0.2)':'transparent', color:periodo===p.id?'#00FF41':'rgba(255,255,255,0.4)', cursor:'pointer', fontFamily:'system-ui', fontSize:'0.7rem', fontWeight:'600', transition:'all .2s' }}>
+                  style={{ padding:'4px 12px', borderRadius:'100px', border:`1px solid ${periodo===p.id?'#4CAF50':'rgba(255,255,255,0.18)'}`, background:periodo===p.id?'rgba(76,175,80,0.18)':'transparent', color:periodo===p.id?'#4CAF50':'rgba(255,255,255,0.38)', cursor:'pointer', fontSize:'0.68rem', fontWeight:'600', transition:'all .2s' }}>
                   {p.l}
                 </button>
               ))}
             </div>
-            {cargMet ? <p style={{ color:'rgba(255,255,255,0.4)', fontFamily:'system-ui', textAlign:'center' }}>Cargando...</p> : (
-              <div style={{ maxHeight:'50vh', overflowY:'auto' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontFamily:'system-ui', fontSize:'0.95rem' }}>
+            {cargMet ? <p style={{ color:'rgba(255,255,255,0.35)', textAlign:'center' }}>Cargando...</p> : (
+              <div style={{ maxHeight:'55vh', overflowY:'auto' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.9rem' }}>
                   <thead>
-                    <tr style={{ background:'rgba(0,255,65,0.1)', color:'#00FF41', textAlign:'left' }}>
-                      <th style={{ padding:'9px 12px', borderBottom:'2px solid rgba(0,255,65,0.3)' }}>#</th>
-                      <th style={{ padding:'9px 12px', borderBottom:'2px solid rgba(0,255,65,0.3)' }}>Alumno</th>
-                      <th style={{ padding:'9px 12px', borderBottom:'2px solid rgba(0,255,65,0.3)', textAlign:'right' }}>XP</th>
+                    <tr style={{ background:'rgba(76,175,80,0.08)', color:'#4CAF50', textAlign:'left' }}>
+                      <th style={{ padding:'9px 10px', borderBottom:'2px solid rgba(76,175,80,0.25)' }}>#</th>
+                      <th style={{ padding:'9px 10px', borderBottom:'2px solid rgba(76,175,80,0.25)' }}>Alumno</th>
+                      <th style={{ padding:'9px 10px', borderBottom:'2px solid rgba(76,175,80,0.25)', textAlign:'right' }}>XP</th>
                     </tr>
                   </thead>
                   <tbody>
                     {alumnos.map((a,i) => (
-                      <tr key={a.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.05)' }}>
-                        <td style={{ padding:'8px 12px', color:i===0?'#FFD700':i===1?'#C0C0C0':i===2?'#CD7F32':'#fff', fontWeight:'bold' }}>#{i+1}</td>
-                        <td style={{ padding:'8px 12px', color:'#fff' }}>{a.nombre}</td>
-                        <td style={{ padding:'8px 12px', color:'#00FF41', fontWeight:'bold', textAlign:'right' }}>{a[periodo]||0}</td>
+                      <tr key={a.id} style={{ borderBottom:'1px solid rgba(255,255,255,0.04)' }}>
+                        <td style={{ padding:'8px 10px', color:i===0?'#FFD700':i===1?'#C0C0C0':i===2?'#CD7F32':'#fff', fontWeight:'bold' }}>#{i+1}</td>
+                        <td style={{ padding:'8px 10px', color:'#fff' }}>{a.nombre}</td>
+                        <td style={{ padding:'8px 10px', color:'#4CAF50', fontWeight:'bold', textAlign:'right' }}>{a[periodo]||0}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-                <p style={{ color:'rgba(255,255,255,0.2)', fontFamily:'system-ui', fontSize:'0.7rem', textAlign:'center', marginTop:'10px' }}>🔒 Solo lectura</p>
+                <p style={{ color:'rgba(255,255,255,0.15)', fontSize:'0.67rem', textAlign:'center', marginTop:'10px' }}>🔒 Solo lectura</p>
               </div>
             )}
           </div>
         )}
       </div>
-
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-      `}</style>
     </div>
   );
 };
