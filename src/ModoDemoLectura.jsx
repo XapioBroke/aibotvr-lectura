@@ -242,7 +242,7 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     }
   }, [detener]);
 
-  const iniciarGrabacion = useCallback(() => {
+  const iniciarGrabacion = useCallback((reanudar = false) => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
       setMicError('Tu navegador no soporta reconocimiento de voz. Usa Chrome en escritorio.');
@@ -251,11 +251,15 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     setMicError('');
     grabandoRef.current = true;
     setGrabando(true);
-    segsRef.current = 0;
-    setSegundos(0);
-    transRef.current = '';
-    setTrans('');
-    setPosActual(0);
+
+    // Solo resetear si es inicio desde cero, NO si es reanudar
+    if (!reanudar) {
+      transRef.current = '';
+      segsRef.current  = 0;
+      setTrans('');
+      setPosActual(0);
+      setSegundos(0);
+    }
 
     timerRef.current = setInterval(() => {
       segsRef.current++;
@@ -269,14 +273,40 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     const trans = transOverride || transRef.current;
     detener();
 
+    // Modo 'libre' evita penalizar pausas/expresividad que Web Speech API
+    // no puede detectar (no capta signos de puntuación ni entonación).
+    // La precisión se calcula con textoReferencia para modo guiado.
+    const tiempoReal = segsRef.current > 0 ? segsRef.current : 1;
     const analisis = analizarLecturaLocal({
       transcripcion:    trans,
       textoReferencia:  textoSel?.texto || '',
-      tiempoSegundos:   segsRef.current || 1,
+      tiempoSegundos:   tiempoReal,
       modoLectura:      'guiada',
       modoIdioma:       { leer: 'es' },
       alumnoNombre:     esAlumno ? `Alumno Grupo ${grupo}` : 'Invitado',
     });
+
+    // Ajuste de calificación: pausas y expresividad no son medibles
+    // con Web Speech API, así que les asignamos un puntaje neutral (7)
+    // para no penalizar injustamente al lector.
+    if (analisis && analisis.pausas)      analisis.pausas.puntuacion      = Math.max(analisis.pausas.puntuacion, 7);
+    if (analisis && analisis.expresividad) analisis.expresividad.puntuacion = Math.max(analisis.expresividad.puntuacion, 7);
+
+    // Recalcular calificación final con pesos ajustados
+    if (analisis) {
+      const cats = {
+        fluidez:      { peso: 0.30, val: analisis.fluidez?.puntuacion      || 5 },
+        precision:    { peso: 0.40, val: analisis.precision?.puntuacion     || 5 },
+        diccion:      { peso: 0.15, val: analisis.diccion?.puntuacion       || 5 },
+        pausas:       { peso: 0.08, val: analisis.pausas?.puntuacion        || 7 },
+        expresividad: { peso: 0.07, val: analisis.expresividad?.puntuacion  || 7 },
+      };
+      let suma = 0, pesos = 0;
+      Object.values(cats).forEach(({ peso, val }) => { suma += val * peso; pesos += peso; });
+      analisis.calificacionFinal = Math.round((suma / pesos) * 10) / 10;
+      // Actualizar puntos ganados proporcionales
+      analisis.puntosGanados = Math.round((analisis.calificacionFinal / 10) * 30);
+    }
 
     setResultado(analisis);
     setPantalla('resultado');
@@ -499,7 +529,7 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
             {/* Botones */}
             <div style={{ display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap' }}>
               {!grabando && (
-                <button onClick={iniciarGrabacion}
+                <button onClick={() => iniciarGrabacion(!!transcripcion)}
                   style={{ background:'#29B6F6', color:'#000', border:'none', borderRadius:'10px', padding:'12px 32px', fontSize:'0.95rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px', boxShadow:'0 0 18px rgba(41,182,246,0.35)' }}>
                   {transcripcion ? '▶️ Reanudar' : '🎙️ Iniciar lectura'}
                 </button>
