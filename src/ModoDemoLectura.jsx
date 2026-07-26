@@ -71,28 +71,52 @@ function similitud(a, b) {
   return 1 - m[nb.length][na.length] / maxLen;
 }
 
-// ── Fuzzy word tracker: encuentra hasta dónde llegó el alumno ─
+// ── Fuzzy word tracker tolerante ─────────────────────────────
+// Umbral bajo (0.50) para aceptar variaciones de pronunciación
+// Ventana amplia (6) para manejar omisiones y repeticiones
 function calcularPosicion(palabrasRef, transcripcion) {
   const leidas = transcripcion.trim().split(/\s+/).filter(Boolean);
   if (!leidas.length) return 0;
-  let pos = 0;
-  let li  = 0;
-  while (li < leidas.length && pos < palabrasRef.length) {
-    if (similitud(leidas[li], palabrasRef[pos]) >= 0.70) {
-      pos++;
-      li++;
+
+  let posRef = 0; // posición en texto original
+  let posLei = 0; // posición en lo leído
+
+  while (posLei < leidas.length && posRef < palabrasRef.length) {
+    const sim = similitud(leidas[posLei], palabrasRef[posRef]);
+
+    if (sim >= 0.50) {
+      // Coincidencia aceptable → avanzar ambos
+      posRef++;
+      posLei++;
     } else {
-      // Buscar hacia adelante en el texto de referencia (omisión)
-      let found = false;
-      for (let look = pos + 1; look < Math.min(pos + 4, palabrasRef.length); look++) {
-        if (similitud(leidas[li], palabrasRef[look]) >= 0.75) {
-          pos = look + 1; li++; found = true; break;
+      // Buscar en ventana hacia adelante en el TEXTO (omisión del lector)
+      let foundRef = false;
+      for (let look = posRef + 1; look < Math.min(posRef + 6, palabrasRef.length); look++) {
+        if (similitud(leidas[posLei], palabrasRef[look]) >= 0.55) {
+          posRef = look + 1;
+          posLei++;
+          foundRef = true;
+          break;
         }
       }
-      if (!found) li++;
+
+      if (!foundRef) {
+        // Buscar en ventana hacia adelante en LO LEÍDO (inserción/repetición)
+        let foundLei = false;
+        for (let look = posLei + 1; look < Math.min(posLei + 3, leidas.length); look++) {
+          if (similitud(leidas[look], palabrasRef[posRef]) >= 0.55) {
+            posRef++;
+            posLei = look + 1;
+            foundLei = true;
+            break;
+          }
+        }
+        if (!foundLei) posLei++; // saltar palabra no reconocida
+      }
     }
   }
-  return pos;
+
+  return Math.min(posRef, palabrasRef.length);
 }
 
 const ModoDemoLectura = ({ rol, onSalir }) => {
@@ -129,20 +153,16 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   };
 
   const elegirTexto = (t) => {
+    detener(true); // detener mic Y resetear estado
     palabrasRef.current = t.texto.split(/\s+/).filter(Boolean);
-    transRef.current = '';
-    segsRef.current  = 0;
     setTextoSel(t);
-    setTrans('');
-    setPosActual(0);
-    setSegundos(0);
     setResultado(null);
     setMicError('');
     setPantalla('practica');
   };
 
-  // ── Detener grabación limpiamente ─────────────────────────
-  const detener = useCallback(() => {
+  // ── Detener micrófono (sin borrar transcripción) ────────────
+  const detener = useCallback((resetear = false) => {
     grabandoRef.current = false;
     setGrabando(false);
     if (recRef.current) {
@@ -150,6 +170,13 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       recRef.current = null;
     }
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    if (resetear) {
+      transRef.current = '';
+      segsRef.current  = 0;
+      setTrans('');
+      setPosActual(0);
+      setSegundos(0);
+    }
   }, []);
 
   // ── Iniciar sesión de reconocimiento ─────────────────────
@@ -474,7 +501,7 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
               {!grabando && (
                 <button onClick={iniciarGrabacion}
                   style={{ background:'#29B6F6', color:'#000', border:'none', borderRadius:'10px', padding:'12px 32px', fontSize:'0.95rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px', boxShadow:'0 0 18px rgba(41,182,246,0.35)' }}>
-                  🎙️ Iniciar lectura
+                  {transcripcion ? '▶️ Reanudar' : '🎙️ Iniciar lectura'}
                 </button>
               )}
               {grabando && (
@@ -483,9 +510,9 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
                     style={{ background:'#4CAF50', color:'#000', border:'none', borderRadius:'10px', padding:'12px 28px', fontSize:'0.92rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px' }}>
                     ✅ Finalizar
                   </button>
-                  <button onClick={detener}
+                  <button onClick={() => detener(false)}
                     style={{ background:'rgba(239,83,80,0.12)', border:'2px solid #EF5350', borderRadius:'10px', padding:'12px 20px', fontSize:'0.85rem', fontWeight:'600', cursor:'pointer', color:'#EF5350' }}>
-                    ⏹ Pausar
+                    ⏸ Pausar
                   </button>
                 </>
               )}
