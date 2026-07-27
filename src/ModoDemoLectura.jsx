@@ -270,43 +270,89 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   }, [iniciarSesion]);
 
   const finalizarLectura = useCallback((transOverride) => {
-    const trans = transOverride || transRef.current;
+    const transRaw = transOverride || transRef.current;
     detener();
 
-    // Modo 'libre' evita penalizar pausas/expresividad que Web Speech API
-    // no puede detectar (no capta signos de puntuación ni entonación).
-    // La precisión se calcula con textoReferencia para modo guiado.
-    const tiempoReal = segsRef.current > 0 ? segsRef.current : 1;
+    const tiempoReal   = segsRef.current > 0 ? segsRef.current : 1;
+    const palabrasTexto = (textoSel?.texto || '').split(/\s+/).filter(Boolean);
+
+    // ── Limpiar transcripción duplicada ─────────────────────
+    // SpeechRecognition reinicia sesiones y puede acumular texto repetido.
+    // Reconstruimos la transcripción limpia siguiendo el orden del texto
+    // original con el fuzzy tracker, limitando a las palabras del texto.
+    const palabrasLeidas = transRaw.trim().split(/\s+/).filter(Boolean);
+    const transLimpia = (() => {
+      // Recorrer el texto original y asignar la mejor palabra leída
+      const resultado = [];
+      let li = 0;
+      for (let ri = 0; ri < palabrasTexto.length && li < palabrasLeidas.length; ri++) {
+        // Buscar la mejor coincidencia en ventana
+        let mejorSim = 0, mejorIdx = li;
+        for (let look = li; look < Math.min(li + 8, palabrasLeidas.length); look++) {
+          const s = similitud(palabrasLeidas[look], palabrasTexto[ri]);
+          if (s > mejorSim) { mejorSim = s; mejorIdx = look; }
+        }
+        if (mejorSim >= 0.45) {
+          resultado.push(palabrasLeidas[mejorIdx]);
+          li = mejorIdx + 1;
+        } else {
+          resultado.push(''); // palabra omitida
+        }
+      }
+      return resultado.filter(Boolean).join(' ');
+    })();
+
+    // PPM real basado en palabras del texto leídas / tiempo real
+    const palabrasLeídasCount = transLimpia.split(/\s+/).filter(Boolean).length;
+    const ppmReal = Math.round((palabrasLeídasCount / tiempoReal) * 60);
+
     const analisis = analizarLecturaLocal({
-      transcripcion:    trans,
-      textoReferencia:  textoSel?.texto || '',
-      tiempoSegundos:   tiempoReal,
-      modoLectura:      'guiada',
-      modoIdioma:       { leer: 'es' },
-      alumnoNombre:     esAlumno ? `Alumno Grupo ${grupo}` : 'Invitado',
+      transcripcion:   transLimpia || transRaw,
+      textoReferencia: textoSel?.texto || '',
+      tiempoSegundos:  tiempoReal,
+      modoLectura:     'guiada',
+      modoIdioma:      { leer: 'es' },
+      alumnoNombre:    esAlumno ? `Alumno Grupo ${grupo}` : 'Invitado',
     });
 
-    // Ajuste de calificación: pausas y expresividad no son medibles
-    // con Web Speech API, así que les asignamos un puntaje neutral (7)
-    // para no penalizar injustamente al lector.
-    if (analisis && analisis.pausas)      analisis.pausas.puntuacion      = Math.max(analisis.pausas.puntuacion, 7);
-    if (analisis && analisis.expresividad) analisis.expresividad.puntuacion = Math.max(analisis.expresividad.puntuacion, 7);
+    if (!analisis) { setResultado({ calificacionFinal: 0, error: true }); setPantalla('resultado'); return; }
 
-    // Recalcular calificación final con pesos ajustados
-    if (analisis) {
-      const cats = {
-        fluidez:      { peso: 0.30, val: analisis.fluidez?.puntuacion      || 5 },
-        precision:    { peso: 0.40, val: analisis.precision?.puntuacion     || 5 },
-        diccion:      { peso: 0.15, val: analisis.diccion?.puntuacion       || 5 },
-        pausas:       { peso: 0.08, val: analisis.pausas?.puntuacion        || 7 },
-        expresividad: { peso: 0.07, val: analisis.expresividad?.puntuacion  || 7 },
-      };
-      let suma = 0, pesos = 0;
-      Object.values(cats).forEach(({ peso, val }) => { suma += val * peso; pesos += peso; });
-      analisis.calificacionFinal = Math.round((suma / pesos) * 10) / 10;
-      // Actualizar puntos ganados proporcionales
-      analisis.puntosGanados = Math.round((analisis.calificacionFinal / 10) * 30);
-    }
+    // ── Garantizar que todas las categorías existan ──────────
+    if (!analisis.precision)    analisis.precision    = { puntuacion: 5, comentario: '' };
+    if (!analisis.fluidez)      analisis.fluidez      = { puntuacion: 5, comentario: '' };
+    if (!analisis.diccion)      analisis.diccion      = { puntuacion: 5, comentario: '' };
+    if (!analisis.pausas)       analisis.pausas       = { puntuacion: 7, comentario: '' };
+    if (!analisis.expresividad) analisis.expresividad = { puntuacion: 7, comentario: '' };
+
+    // ── Ajustar PPM al valor real (sin duplicados) ───────────
+    analisis.palabrasPorMinuto = ppmReal;
+    // Recalcular fluidez con PPM correcto
+    if (ppmReal >= 120 && ppmReal <= 160) analisis.fluidez.puntuacion = 10;
+    else if (ppmReal >= 90 && ppmReal < 120) analisis.fluidez.puntuacion = 8;
+    else if (ppmReal >= 160 && ppmReal <= 200) analisis.fluidez.puntuacion = 8;
+    else if (ppmReal >= 60 && ppmReal < 90)  analisis.fluidez.puntuacion = 6;
+    else if (ppmReal > 200) analisis.fluidez.puntuacion = 6;
+    else analisis.fluidez.puntuacion = 4;
+
+    // ── Pausas y expresividad: puntaje neutral mínimo 7 ─────
+    // Web Speech API no captura puntuación ni entonación → no penalizar
+    analisis.pausas.puntuacion      = Math.max(analisis.pausas.puntuacion, 7);
+    analisis.expresividad.puntuacion = Math.max(analisis.expresividad.puntuacion, 7);
+
+    // ── Recalcular calificación con pesos realistas ──────────
+    // Precisión 35% | Fluidez 30% | Dicción 15% | Pausas 10% | Expresividad 10%
+    const cats = {
+      precision:    { peso: 0.35, val: analisis.precision.puntuacion    },
+      fluidez:      { peso: 0.30, val: analisis.fluidez.puntuacion      },
+      diccion:      { peso: 0.15, val: analisis.diccion.puntuacion      },
+      pausas:       { peso: 0.10, val: analisis.pausas.puntuacion       },
+      expresividad: { peso: 0.10, val: analisis.expresividad.puntuacion },
+    };
+    let suma = 0;
+    Object.values(cats).forEach(({ peso, val }) => { suma += (val || 5) * peso; });
+    analisis.calificacionFinal = Math.round(suma * 10) / 10;
+    analisis.puntosGanados     = Math.round((analisis.calificacionFinal / 10) * 30);
+    analisis.palabrasPorMinuto = ppmReal;
 
     setResultado(analisis);
     setPantalla('resultado');
