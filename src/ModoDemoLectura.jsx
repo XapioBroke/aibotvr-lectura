@@ -275,11 +275,13 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
 
   const finalizarLectura = useCallback((transOverride) => {
     const transRaw = transOverride || transRef.current;
+    // ⚠️ Capturar ANTES de detener() para evitar que onend resetee el valor
+    const posConfirmada = posRef.current;
+    const tiempoCapturado = segsRef.current > 0 ? segsRef.current : 1;
     detener();
 
-    const tiempoReal    = segsRef.current > 0 ? segsRef.current : 1;
+    const tiempoReal    = tiempoCapturado;
     const palabrasTexto = (textoSel?.texto || '').split(/\s+/).filter(Boolean);
-    const posConfirmada = posRef.current; // palabras confirmadas por el tracker
 
     // ── PPM desde tracker (fuente de verdad, sin duplicados) ─
     // posConfirmada = cuántas palabras del texto original reconoció el tracker
