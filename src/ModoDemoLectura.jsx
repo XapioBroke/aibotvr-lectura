@@ -143,6 +143,7 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   const segsRef     = useRef(0);
   const grabandoRef = useRef(false);
   const palabrasRef = useRef([]);
+  const posRef      = useRef(0);
 
   const cerrarSesion = async () => {
     detener();
@@ -155,6 +156,7 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   const elegirTexto = (t) => {
     detener(true); // detener mic Y resetear estado
     palabrasRef.current = t.texto.split(/\s+/).filter(Boolean);
+    posRef.current = 0;
     setTextoSel(t);
     setResultado(null);
     setMicError('');
@@ -206,6 +208,7 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       setTrans(total);
 
       const pos = calcularPosicion(palabrasRef.current, total);
+      posRef.current = pos; // ← actualizar ref para finalizarLectura
       setPosActual(pos);
 
       // Auto-completar si llegó al 95% del texto
@@ -256,6 +259,7 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     if (!reanudar) {
       transRef.current = '';
       segsRef.current  = 0;
+      posRef.current   = 0;
       setTrans('');
       setPosActual(0);
       setSegundos(0);
