@@ -274,14 +274,17 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   }, [iniciarSesion]);
 
   const finalizarLectura = useCallback((transOverride) => {
-    const transRaw = transOverride || transRef.current;
-    // ⚠️ Capturar ANTES de detener() para evitar que onend resetee el valor
-    const posConfirmada = posRef.current;
+    const transRaw        = transOverride || transRef.current;
     const tiempoCapturado = segsRef.current > 0 ? segsRef.current : 1;
     detener();
 
-    const tiempoReal    = tiempoCapturado;
     const palabrasTexto = (textoSel?.texto || '').split(/\s+/).filter(Boolean);
+    const tiempoReal    = tiempoCapturado;
+
+    // ── Calcular posición directamente desde transcripción ───
+    // No depender de posRef.current (puede tener timing issues).
+    // Recalcular aquí con toda la transcripción acumulada.
+    const posConfirmada = calcularPosicion(palabrasTexto, transRaw);
 
     // ── PPM desde tracker (fuente de verdad, sin duplicados) ─
     // posConfirmada = cuántas palabras del texto original reconoció el tracker
