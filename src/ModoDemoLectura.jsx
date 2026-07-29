@@ -273,88 +273,111 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     const transRaw = transOverride || transRef.current;
     detener();
 
-    const tiempoReal   = segsRef.current > 0 ? segsRef.current : 1;
+    const tiempoReal    = segsRef.current > 0 ? segsRef.current : 1;
     const palabrasTexto = (textoSel?.texto || '').split(/\s+/).filter(Boolean);
+    const posConfirmada = posRef.current; // palabras confirmadas por el tracker
 
-    // ── Limpiar transcripción duplicada ─────────────────────
-    // SpeechRecognition reinicia sesiones y puede acumular texto repetido.
-    // Reconstruimos la transcripción limpia siguiendo el orden del texto
-    // original con el fuzzy tracker, limitando a las palabras del texto.
-    const palabrasLeidas = transRaw.trim().split(/\s+/).filter(Boolean);
-    const transLimpia = (() => {
-      // Recorrer el texto original y asignar la mejor palabra leída
-      const resultado = [];
-      let li = 0;
-      for (let ri = 0; ri < palabrasTexto.length && li < palabrasLeidas.length; ri++) {
-        // Buscar la mejor coincidencia en ventana
-        let mejorSim = 0, mejorIdx = li;
-        for (let look = li; look < Math.min(li + 8, palabrasLeidas.length); look++) {
-          const s = similitud(palabrasLeidas[look], palabrasTexto[ri]);
-          if (s > mejorSim) { mejorSim = s; mejorIdx = look; }
-        }
-        if (mejorSim >= 0.45) {
-          resultado.push(palabrasLeidas[mejorIdx]);
-          li = mejorIdx + 1;
-        } else {
-          resultado.push(''); // palabra omitida
-        }
-      }
-      return resultado.filter(Boolean).join(' ');
-    })();
+    // ── PPM desde tracker (fuente de verdad, sin duplicados) ─
+    // posConfirmada = cuántas palabras del texto original reconoció el tracker
+    const ppmReal = posConfirmada > 0
+      ? Math.round((posConfirmada / tiempoReal) * 60)
+      : 0;
 
-    // PPM real basado en palabras del texto leídas / tiempo real
-    const palabrasLeídasCount = transLimpia.split(/\s+/).filter(Boolean).length;
-    const ppmReal = Math.round((palabrasLeídasCount / tiempoReal) * 60);
+    // ── Precisión desde tracker ───────────────────────────────
+    // Porcentaje de palabras del texto que el tracker confirmó como leídas
+    const pctCobertura = palabrasTexto.length > 0
+      ? (posConfirmada / palabrasTexto.length)
+      : 0;
 
+    // Convertir cobertura a puntuación 1-10
+    const puntuacionPrecision = Math.min(10, Math.round(
+      pctCobertura >= 0.95 ? 10 :
+      pctCobertura >= 0.85 ? 9  :
+      pctCobertura >= 0.75 ? 8  :
+      pctCobertura >= 0.65 ? 7  :
+      pctCobertura >= 0.55 ? 6  :
+      pctCobertura >= 0.45 ? 5  :
+      pctCobertura >= 0.35 ? 4  : 3
+    ));
+
+    const comentarioPrecision =
+      puntuacionPrecision >= 9 ? `Precisión del ${Math.round(pctCobertura*100)}%. Seguiste el texto de referencia con gran fidelidad.` :
+      puntuacionPrecision >= 7 ? `Precisión del ${Math.round(pctCobertura*100)}%. Leíste la mayor parte correctamente.` :
+      puntuacionPrecision >= 5 ? `Precisión del ${Math.round(pctCobertura*100)}%. Varias palabras fueron omitidas o cambiadas.` :
+      `Precisión del ${Math.round(pctCobertura*100)}%. Practica releer el texto antes de grabarte.`;
+
+    // ── Fluidez desde PPM real ────────────────────────────────
+    const puntuacionFluidez =
+      ppmReal === 0           ? 1  :
+      ppmReal < 60            ? 4  :
+      ppmReal >= 60  && ppmReal < 90  ? 6  :
+      ppmReal >= 90  && ppmReal < 120 ? 8  :
+      ppmReal >= 120 && ppmReal <= 160 ? 10 :
+      ppmReal >= 161 && ppmReal <= 200 ? 8  : 6;
+
+    const comentarioFluidez =
+      ppmReal === 0           ? 'No se detectó velocidad de lectura.' :
+      ppmReal < 60            ? `Leíste a ${ppmReal} PPM. Velocidad muy lenta. El rango ideal es 120-150 PPM.` :
+      ppmReal < 90            ? `Leíste a ${ppmReal} PPM. Velocidad por debajo del promedio. Practica con textos cronometrados.` :
+      ppmReal < 120           ? `Leíste a ${ppmReal} PPM. Buen ritmo, estás acercándote al rango ideal de 120-150 PPM.` :
+      ppmReal <= 160          ? `¡Excelente! ${ppmReal} PPM está en el rango ideal de lectura fluida.` :
+      ppmReal <= 200          ? `Leíste a ${ppmReal} PPM, un poco rápido. A veces la velocidad afecta la comprensión.` :
+                                `${ppmReal} PPM es muy rápido. Reduce el ritmo para mejorar la comprensión.`;
+
+    // ── Pasar transcripción a localAnalyzer solo para dicción ─
     const analisis = analizarLecturaLocal({
-      transcripcion:   transLimpia || transRaw,
+      transcripcion:   transRaw,
       textoReferencia: textoSel?.texto || '',
       tiempoSegundos:  tiempoReal,
-      modoLectura:     'guiada',
+      modoLectura:     'libre', // libre = no calcula precisión (la calculamos nosotros)
       modoIdioma:      { leer: 'es' },
       alumnoNombre:    esAlumno ? `Alumno Grupo ${grupo}` : 'Invitado',
+    }) || {};
+
+    // ── Construir resultado final con valores propios ─────────
+    const precision    = { puntuacion: puntuacionPrecision, comentario: comentarioPrecision };
+    const fluidez      = { puntuacion: puntuacionFluidez,  comentario: comentarioFluidez };
+    const diccion      = analisis.diccion      || { puntuacion: 6, comentario: 'Vocabulario detectado.' };
+    const pausas       = { puntuacion: 7, comentario: 'Análisis de pausas disponible en modo IA.' };
+    const expresividad = { puntuacion: 7, comentario: 'Análisis de expresividad disponible en modo IA.' };
+
+    // ── Calificación ponderada ────────────────────────────────
+    const suma =
+      precision.puntuacion    * 0.40 +
+      fluidez.puntuacion      * 0.30 +
+      diccion.puntuacion      * 0.15 +
+      pausas.puntuacion       * 0.08 +
+      expresividad.puntuacion * 0.07;
+
+    const calificacionFinal = Math.round(suma * 10) / 10;
+
+    // ── Fortalezas y áreas a mejorar ─────────────────────────
+    const fortalezas = [];
+    const areasAMejorar = [];
+    if (puntuacionPrecision >= 8) fortalezas.push('Alta fidelidad al texto de referencia');
+    if (puntuacionFluidez   >= 8) fortalezas.push('Velocidad de lectura en rango ideal');
+    if (diccion.puntuacion  >= 8) fortalezas.push('Buen vocabulario y variedad léxica');
+    if (fortalezas.length === 0)  fortalezas.push('Completaste la lectura con esfuerzo y dedicación');
+    if (puntuacionPrecision < 7)  areasAMejorar.push('Leer más despacio para seguir el texto con precisión');
+    if (puntuacionFluidez   < 7)  areasAMejorar.push('Practicar la velocidad de lectura diariamente');
+    if (diccion.puntuacion  < 6)  areasAMejorar.push('Ampliar el vocabulario con lectura variada');
+
+    const comentarioGeneral =
+      calificacionFinal >= 9  ? `¡Lectura sobresaliente! Demostraste dominio en fluidez y precisión.` :
+      calificacionFinal >= 7  ? `Buena lectura. Los resultados muestran un lector en desarrollo con áreas de mejora.` :
+      calificacionFinal >= 5  ? `Lectura en proceso de desarrollo. Se recomienda práctica diaria de 10-15 minutos.` :
+                                `Necesita apoyo adicional en lectura. Comienza con textos más cortos y sencillos.`;
+
+    setResultado({
+      calificacionFinal,
+      puntosGanados: Math.round((calificacionFinal / 10) * 30),
+      palabrasPorMinuto: ppmReal,
+      numeroPalabras: posConfirmada,
+      comentarioGeneral,
+      precision, fluidez, diccion, pausas, expresividad,
+      fortalezas, areasAMejorar,
+      modoAnalisis: 'local',
     });
-
-    if (!analisis) { setResultado({ calificacionFinal: 0, error: true }); setPantalla('resultado'); return; }
-
-    // ── Garantizar que todas las categorías existan ──────────
-    if (!analisis.precision)    analisis.precision    = { puntuacion: 5, comentario: '' };
-    if (!analisis.fluidez)      analisis.fluidez      = { puntuacion: 5, comentario: '' };
-    if (!analisis.diccion)      analisis.diccion      = { puntuacion: 5, comentario: '' };
-    if (!analisis.pausas)       analisis.pausas       = { puntuacion: 7, comentario: '' };
-    if (!analisis.expresividad) analisis.expresividad = { puntuacion: 7, comentario: '' };
-
-    // ── Ajustar PPM al valor real (sin duplicados) ───────────
-    analisis.palabrasPorMinuto = ppmReal;
-    // Recalcular fluidez con PPM correcto
-    if (ppmReal >= 120 && ppmReal <= 160) analisis.fluidez.puntuacion = 10;
-    else if (ppmReal >= 90 && ppmReal < 120) analisis.fluidez.puntuacion = 8;
-    else if (ppmReal >= 160 && ppmReal <= 200) analisis.fluidez.puntuacion = 8;
-    else if (ppmReal >= 60 && ppmReal < 90)  analisis.fluidez.puntuacion = 6;
-    else if (ppmReal > 200) analisis.fluidez.puntuacion = 6;
-    else analisis.fluidez.puntuacion = 4;
-
-    // ── Pausas y expresividad: puntaje neutral mínimo 7 ─────
-    // Web Speech API no captura puntuación ni entonación → no penalizar
-    analisis.pausas.puntuacion      = Math.max(analisis.pausas.puntuacion, 7);
-    analisis.expresividad.puntuacion = Math.max(analisis.expresividad.puntuacion, 7);
-
-    // ── Recalcular calificación con pesos realistas ──────────
-    // Precisión 35% | Fluidez 30% | Dicción 15% | Pausas 10% | Expresividad 10%
-    const cats = {
-      precision:    { peso: 0.35, val: analisis.precision.puntuacion    },
-      fluidez:      { peso: 0.30, val: analisis.fluidez.puntuacion      },
-      diccion:      { peso: 0.15, val: analisis.diccion.puntuacion      },
-      pausas:       { peso: 0.10, val: analisis.pausas.puntuacion       },
-      expresividad: { peso: 0.10, val: analisis.expresividad.puntuacion },
-    };
-    let suma = 0;
-    Object.values(cats).forEach(({ peso, val }) => { suma += (val || 5) * peso; });
-    analisis.calificacionFinal = Math.round(suma * 10) / 10;
-    analisis.puntosGanados     = Math.round((analisis.calificacionFinal / 10) * 30);
-    analisis.palabrasPorMinuto = ppmReal;
-
-    setResultado(analisis);
     setPantalla('resultado');
   }, [detener, textoSel, esAlumno, grupo]);
 
