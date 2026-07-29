@@ -205,10 +205,11 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
         parcial += e.results[i][0].transcript;
 
       const total = (transRef.current + ' ' + parcial).trim();
+      transRef.current = total; // ← SIEMPRE guardar en ref
       setTrans(total);
 
       const pos = calcularPosicion(palabrasRef.current, total);
-      posRef.current = pos; // ← actualizar ref para finalizarLectura
+      posRef.current = pos;
       setPosActual(pos);
 
       // Auto-completar si llegó al 95% del texto
@@ -391,8 +392,8 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   }, [detener, textoSel, esAlumno, grupo]);
 
   const finalizarManual = () => {
-    transRef.current = transcripcion;
-    finalizarLectura(transcripcion);
+    // transRef.current ya está actualizado por onresult
+    finalizarLectura(transRef.current);
   };
 
   useEffect(() => () => { detener(); }, []);
