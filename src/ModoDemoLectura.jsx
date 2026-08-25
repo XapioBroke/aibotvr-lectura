@@ -194,35 +194,54 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
 
     const r = new SR();
     r.lang            = 'es-MX';
-    r.continuous      = false;
+    // continuous:true reduce los reinicios del motor y evita huecos de audio
+    // (antes, cada pausa breve cortaba la sesión y se perdían palabras al reiniciar).
+    r.continuous      = true;
     r.interimResults  = true;
     r.maxAlternatives = 1;
     recRef.current    = r;
 
     r.onresult = (e) => {
-      let parcial = '';
-      for (let i = e.resultIndex; i < e.results.length; i++)
-        parcial += e.results[i][0].transcript;
+      // FIX: separar resultados FINALES (confirmados) de los PROVISIONALES
+      // (interim). Antes se acumulaban ambos permanentemente en transRef,
+      // y como onresult se dispara varias veces por cada frase mientras el
+      // motor "adivina", el texto terminaba duplicado → contaba palabras de
+      // más → disparaba el cierre automático (95%) antes de tiempo → análisis
+      // final erróneo. Ahora solo lo FINAL se guarda de forma permanente.
+      let final   = '';
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const pieza = e.results[i][0].transcript;
+        if (e.results[i].isFinal) final += pieza + ' ';
+        else interim += pieza;
+      }
 
-      const total = (transRef.current + ' ' + parcial).trim();
-      transRef.current = total; // ← SIEMPRE guardar en ref
-      setTrans(total);
+      if (final) {
+        transRef.current = (transRef.current + ' ' + final).trim();
+      }
 
-      const pos = calcularPosicion(palabrasRef.current, total);
+      // Lo provisional solo se usa para pintar la pantalla en vivo,
+      // nunca se guarda de forma permanente en transRef.
+      const totalVisible = (transRef.current + ' ' + interim).trim();
+      setTrans(totalVisible);
+
+      const pos = calcularPosicion(palabrasRef.current, totalVisible);
       posRef.current = pos;
       setPosActual(pos);
 
-      // Auto-completar si llegó al 95% del texto
+      // Auto-completar si llegó al 95% del texto (ahora basado en conteo real)
       if (pos >= palabrasRef.current.length * 0.95) {
-        transRef.current = total;
-        finalizarLectura(total);
+        finalizarLectura(totalVisible);
       }
     };
 
     r.onend = () => {
-      // Guardar lo que hubo hasta ahora
+      // Con continuous:true esto se dispara mucho menos seguido (solo si
+      // Chrome corta la sesión por límite interno o silencio muy largo).
+      // La transcripción confirmada ya vive en transRef.current (solo
+      // resultados isFinal), así que reiniciar aquí no duplica ni pierde
+      // lo ya leído.
       if (grabandoRef.current) {
-        // Pequeña pausa antes de reiniciar para evitar loops
         setTimeout(() => {
           if (grabandoRef.current) iniciarSesion();
         }, 200);
