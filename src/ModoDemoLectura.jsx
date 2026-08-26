@@ -3,7 +3,7 @@ import { signOut } from 'firebase/auth';
 import { getAuth } from 'firebase/auth';
 import { initializeApp, getApps } from 'firebase/app';
 import { db } from './firebase';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { analizarLecturaLocal } from './localAnalyzer';
 
 const _fbConfig = {
@@ -136,14 +136,20 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   const [alumnos, setAlumnos]       = useState([]);
   const [cargMet, setCargMet]       = useState(false);
   const [periodo, setPeriodo]       = useState('tri1');
+  const [mostrarQR, setMostrarQR]   = useState(false);
+  const [faseQR, setFaseQR]         = useState('esperando'); // esperando | conectado | grabando | completado
+  const [sesionQRId, setSesionQRId] = useState('');
 
   const recRef      = useRef(null);
   const timerRef    = useRef(null);
-  const transRef    = useRef('');
+  const transRef    = useRef(''); // SIEMPRE el total visible actual (base + final sesión + interim)
+  const baseRef     = useRef(''); // texto confirmado de sesiones ANTERIORES (persiste entre reinicios del motor)
+  const sessionFinalRef = useRef(''); // texto confirmado de la sesión ACTUAL en curso
   const segsRef     = useRef(0);
   const grabandoRef = useRef(false);
   const palabrasRef = useRef([]);
   const posRef      = useRef(0);
+  const unsubQRRef  = useRef(null);
 
   const cerrarSesion = async () => {
     detener();
@@ -174,6 +180,8 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
     if (resetear) {
       transRef.current = '';
+      baseRef.current = '';
+      sessionFinalRef.current = '';
       segsRef.current  = 0;
       setTrans('');
       setPosActual(0);
@@ -202,45 +210,46 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     recRef.current    = r;
 
     r.onresult = (e) => {
-      // FIX: separar resultados FINALES (confirmados) de los PROVISIONALES
-      // (interim). Antes se acumulaban ambos permanentemente en transRef,
-      // y como onresult se dispara varias veces por cada frase mientras el
-      // motor "adivina", el texto terminaba duplicado → contaba palabras de
-      // más → disparaba el cierre automático (95%) antes de tiempo → análisis
-      // final erróneo. Ahora solo lo FINAL se guarda de forma permanente.
-      let final   = '';
-      let interim = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
+      // FIX (v2): antes solo mirábamos desde e.resultIndex en adelante.
+      // Con continuous:true pueden quedar fragmentos anteriores que NUNCA
+      // se marcan isFinal (el motor los da por "sustituidos" sin avisar) y
+      // se perdían en silencio → precisión en 0% pese a leer bien.
+      // Ahora reconstruimos TODA la sesión actual en cada evento: es barato
+      // (el array de resultados de una sesión es pequeño) y no pierde nada.
+      let sessionFinal   = '';
+      let sessionInterim = '';
+      for (let i = 0; i < e.results.length; i++) {
         const pieza = e.results[i][0].transcript;
-        if (e.results[i].isFinal) final += pieza + ' ';
-        else interim += pieza;
+        if (e.results[i].isFinal) sessionFinal += pieza + ' ';
+        else sessionInterim += pieza + ' ';
       }
+      sessionFinalRef.current = sessionFinal;
 
-      if (final) {
-        transRef.current = (transRef.current + ' ' + final).trim();
-      }
+      // Total visible = base de sesiones anteriores + confirmado de esta
+      // sesión + lo que se está reconociendo ahora mismo.
+      const total = (baseRef.current + ' ' + sessionFinal + ' ' + sessionInterim).trim();
+      transRef.current = total;
+      setTrans(total);
 
-      // Lo provisional solo se usa para pintar la pantalla en vivo,
-      // nunca se guarda de forma permanente en transRef.
-      const totalVisible = (transRef.current + ' ' + interim).trim();
-      setTrans(totalVisible);
-
-      const pos = calcularPosicion(palabrasRef.current, totalVisible);
+      const pos = calcularPosicion(palabrasRef.current, total);
       posRef.current = pos;
       setPosActual(pos);
 
       // Auto-completar si llegó al 95% del texto (ahora basado en conteo real)
       if (pos >= palabrasRef.current.length * 0.95) {
-        finalizarLectura(totalVisible);
+        finalizarLectura(total);
       }
     };
 
     r.onend = () => {
-      // Con continuous:true esto se dispara mucho menos seguido (solo si
-      // Chrome corta la sesión por límite interno o silencio muy largo).
-      // La transcripción confirmada ya vive en transRef.current (solo
-      // resultados isFinal), así que reiniciar aquí no duplica ni pierde
-      // lo ya leído.
+      // Consolidar lo confirmado de ESTA sesión en la base persistente,
+      // sin importar si se va a reiniciar o no — así nunca se pierde nada
+      // al pausar o al reiniciar automáticamente el motor.
+      if (sessionFinalRef.current) {
+        baseRef.current = (baseRef.current + ' ' + sessionFinalRef.current).trim();
+      }
+      sessionFinalRef.current = '';
+
       if (grabandoRef.current) {
         setTimeout(() => {
           if (grabandoRef.current) iniciarSesion();
@@ -276,8 +285,11 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     setGrabando(true);
 
     // Solo resetear si es inicio desde cero, NO si es reanudar
+    // (al reanudar, baseRef ya trae consolidado lo leído antes de pausar)
     if (!reanudar) {
       transRef.current = '';
+      baseRef.current = '';
+      sessionFinalRef.current = '';
       segsRef.current  = 0;
       posRef.current   = 0;
       setTrans('');
@@ -293,9 +305,9 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     iniciarSesion();
   }, [iniciarSesion]);
 
-  const finalizarLectura = useCallback((transOverride) => {
+  const finalizarLectura = useCallback((transOverride, tiempoOverride) => {
     const transRaw        = transOverride || transRef.current;
-    const tiempoCapturado = segsRef.current > 0 ? segsRef.current : 1;
+    const tiempoCapturado = tiempoOverride || (segsRef.current > 0 ? segsRef.current : 1);
     detener();
 
     const palabrasTexto = (textoSel?.texto || '').split(/\s+/).filter(Boolean);
@@ -411,9 +423,75 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   }, [detener, textoSel, esAlumno, grupo]);
 
   const finalizarManual = () => {
-    // transRef.current ya está actualizado por onresult
+    // transRef.current ahora siempre refleja el total real actualizado
+    // (base de sesiones previas + confirmado de esta sesión + interim en curso)
     finalizarLectura(transRef.current);
   };
+
+  // ── QR: celular como micrófono remoto ──────────────────────
+  // Usa Firestore como canal en tiempo real (mismo `db` que ya usa
+  // el resto del componente). No depende del backend de api.iapprende.com.
+  const cerrarQR = useCallback(() => {
+    if (unsubQRRef.current) { unsubQRRef.current(); unsubQRRef.current = null; }
+    setMostrarQR(false);
+    setSesionQRId('');
+    setFaseQR('esperando');
+  }, []);
+
+  const abrirQR = async () => {
+    if (!textoSel) return;
+    detener(); // por si había algo grabando en la PC
+
+    const id = `demo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setSesionQRId(id);
+    setFaseQR('esperando');
+    setMostrarQR(true);
+
+    try {
+      await setDoc(doc(db, 'demo_mic_sessions', id), {
+        textoTitulo:        textoSel.titulo,
+        textoContenido:     textoSel.texto,
+        estado:             'esperando',
+        transcripcionLive:  '',
+        transcripcionFinal: '',
+        tiempoSegundos:     0,
+        creadoEn:           Date.now(),
+      });
+    } catch (e) {
+      console.error('Error creando sesión QR:', e);
+      setMicError('No se pudo generar el código QR. Revisa tu conexión.');
+      cerrarQR();
+      return;
+    }
+
+    if (unsubQRRef.current) unsubQRRef.current();
+    unsubQRRef.current = onSnapshot(doc(db, 'demo_mic_sessions', id), (snap) => {
+      if (!snap.exists()) return;
+      const data = snap.data();
+
+      if (data.estado === 'conectado' || data.estado === 'grabando' || data.estado === 'completado') {
+        setFaseQR(data.estado);
+      }
+
+      // Mostrar transcripción en vivo mientras el alumno lee en su celular
+      if (data.transcripcionLive) {
+        setTrans(data.transcripcionLive);
+        const pos = calcularPosicion(palabrasRef.current, data.transcripcionLive);
+        setPosActual(pos);
+      }
+
+      // El celular terminó y mandó la transcripción final
+      if (data.estado === 'completado' && data.transcripcionFinal) {
+        if (unsubQRRef.current) { unsubQRRef.current(); unsubQRRef.current = null; }
+        setMostrarQR(false);
+        segsRef.current = data.tiempoSegundos || 1;
+        setSegundos(data.tiempoSegundos || 1);
+        finalizarLectura(data.transcripcionFinal, data.tiempoSegundos || 1);
+      }
+    });
+  };
+
+  useEffect(() => () => { if (unsubQRRef.current) unsubQRRef.current(); }, []);
 
   useEffect(() => () => { detener(); }, []);
 
@@ -627,10 +705,16 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
             {/* Botones */}
             <div style={{ display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap' }}>
               {!grabando && (
-                <button onClick={() => iniciarGrabacion(!!transcripcion)}
-                  style={{ background:'#29B6F6', color:'#000', border:'none', borderRadius:'10px', padding:'12px 32px', fontSize:'0.95rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px', boxShadow:'0 0 18px rgba(41,182,246,0.35)' }}>
-                  {transcripcion ? '▶️ Reanudar' : '🎙️ Iniciar lectura'}
-                </button>
+                <>
+                  <button onClick={() => iniciarGrabacion(!!transcripcion)}
+                    style={{ background:'#29B6F6', color:'#000', border:'none', borderRadius:'10px', padding:'12px 32px', fontSize:'0.95rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px', boxShadow:'0 0 18px rgba(41,182,246,0.35)' }}>
+                    {transcripcion ? '▶️ Reanudar' : '🎙️ Iniciar lectura (PC)'}
+                  </button>
+                  <button onClick={abrirQR}
+                    style={{ background:'rgba(10,132,255,0.1)', color:'#0a84ff', border:'2px solid rgba(10,132,255,0.4)', borderRadius:'10px', padding:'12px 24px', fontSize:'0.9rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px' }}>
+                    📱 Usar celular (QR)
+                  </button>
+                </>
               )}
               {grabando && (
                 <>
@@ -776,6 +860,55 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
           </div>
         )}
       </div>
+
+      {/* ══ MODAL QR — celular como micrófono remoto ══ */}
+      {mostrarQR && (
+        <div onClick={faseQR === 'esperando' ? cerrarQR : undefined}
+          style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(0,0,0,0.92)', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:'#0a0e27', border:'1px solid rgba(10,132,255,0.4)', borderRadius:24, padding:32, maxWidth:400, width:'100%', textAlign:'center' }}>
+            <p style={{ color:'#0a84ff', fontWeight:700, fontSize:'0.8rem', letterSpacing:'0.1em', margin:'0 0 6px' }}>📱 MICRÓFONO QR</p>
+            <p style={{ color:'#fff', fontSize:15, fontWeight:600, margin:'0 0 18px' }}>{textoSel?.titulo}</p>
+
+            {faseQR === 'esperando' && sesionQRId && (
+              <div style={{ background:'#fff', borderRadius:16, padding:12, display:'inline-block', marginBottom:18 }}>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`https://lectura.iapprende.com/mic-demo/${sesionQRId}`)}`}
+                  alt="Código QR" style={{ width:200, height:200, display:'block' }}
+                />
+              </div>
+            )}
+
+            {(faseQR === 'grabando' || faseQR === 'conectado') && (
+              <div style={{ fontSize:'3.5rem', marginBottom:16 }}>🎙️</div>
+            )}
+
+            <p style={{ margin:'0 0 14px', color: faseQR==='grabando' ? '#4CAF50' : '#29B6F6', fontSize:13, fontWeight:600 }}>
+              {faseQR === 'esperando' && '⏳ Esperando que el alumno escanee...'}
+              {faseQR === 'conectado' && '📱 Celular conectado — esperando inicio...'}
+              {faseQR === 'grabando'  && '🔴 Grabando en el celular...'}
+            </p>
+
+            {faseQR === 'esperando' && (
+              <>
+                <p style={{ margin:'0 0 14px', color:'rgba(255,255,255,0.4)', fontSize:11, lineHeight:1.5 }}>
+                  El alumno escanea el QR con su celular, toca "Iniciar lectura" y lee en voz alta. Al terminar toca "Terminé, enviar" — el análisis aparece aquí automáticamente.
+                </p>
+                <button onClick={cerrarQR}
+                  style={{ background:'rgba(239,83,80,0.12)', border:'1px solid #EF5350', borderRadius:20, padding:'8px 20px', color:'#EF5350', cursor:'pointer', fontSize:12, fontWeight:600 }}>
+                  Cancelar
+                </button>
+              </>
+            )}
+
+            {faseQR === 'grabando' && (
+              <p style={{ margin:0, color:'rgba(255,255,255,0.4)', fontSize:11, lineHeight:1.5 }}>
+                La transcripción se está recibiendo en vivo. El alumno toca "Terminé" cuando acabe de leer.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
