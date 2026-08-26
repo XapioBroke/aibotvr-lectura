@@ -242,8 +242,13 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       posRef.current = pos;
       setPosActual(pos);
 
-      // Auto-completar si llegó al 95% del texto (ahora basado en conteo real)
-      if (pos >= palabrasRef.current.length * 0.95) {
+      // Auto-completar si el tracker de posición llegó al 95% del texto,
+      // O si ya se escucharon suficientes palabras crudas (respaldo por si
+      // el tracker se atoró en algún punto — la calificación final de todos
+      // modos ya no depende de `pos`, usa el motor robusto de localAnalyzer).
+      const palabrasCrudas = total.trim().split(/\s+/).filter(Boolean).length;
+      const largoEsperado  = palabrasRef.current.length;
+      if (pos >= largoEsperado * 0.95 || palabrasCrudas >= largoEsperado * 1.4) {
         finalizarLectura(total);
       }
     };
@@ -317,115 +322,35 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     const tiempoCapturado = tiempoOverride || (segsRef.current > 0 ? segsRef.current : 1);
     detener();
 
-    const palabrasTexto = (textoSel?.texto || '').split(/\s+/).filter(Boolean);
-    const tiempoReal    = tiempoCapturado;
-
-    // ── Calcular posición directamente desde transcripción ───
-    // No depender de posRef.current (puede tener timing issues).
-    // Recalcular aquí con toda la transcripción acumulada.
-    const posConfirmada = calcularPosicion(palabrasTexto, transRaw);
-
-    // ── PPM desde tracker (fuente de verdad, sin duplicados) ─
-    // posConfirmada = cuántas palabras del texto original reconoció el tracker
-    const ppmReal = posConfirmada > 0
-      ? Math.round((posConfirmada / tiempoReal) * 60)
-      : 0;
-
-    // ── Precisión desde tracker ───────────────────────────────
-    // Porcentaje de palabras del texto que el tracker confirmó como leídas
-    const pctCobertura = palabrasTexto.length > 0
-      ? (posConfirmada / palabrasTexto.length)
-      : 0;
-
-    // Convertir cobertura a puntuación 1-10
-    const puntuacionPrecision = Math.min(10, Math.round(
-      pctCobertura >= 0.95 ? 10 :
-      pctCobertura >= 0.85 ? 9  :
-      pctCobertura >= 0.75 ? 8  :
-      pctCobertura >= 0.65 ? 7  :
-      pctCobertura >= 0.55 ? 6  :
-      pctCobertura >= 0.45 ? 5  :
-      pctCobertura >= 0.35 ? 4  : 3
-    ));
-
-    const comentarioPrecision =
-      puntuacionPrecision >= 9 ? `Precisión del ${Math.round(pctCobertura*100)}%. Seguiste el texto de referencia con gran fidelidad.` :
-      puntuacionPrecision >= 7 ? `Precisión del ${Math.round(pctCobertura*100)}%. Leíste la mayor parte correctamente.` :
-      puntuacionPrecision >= 5 ? `Precisión del ${Math.round(pctCobertura*100)}%. Varias palabras fueron omitidas o cambiadas.` :
-      `Precisión del ${Math.round(pctCobertura*100)}%. Practica releer el texto antes de grabarte.`;
-
-    // ── Fluidez desde PPM real ────────────────────────────────
-    const puntuacionFluidez =
-      ppmReal === 0           ? 1  :
-      ppmReal < 60            ? 4  :
-      ppmReal >= 60  && ppmReal < 90  ? 6  :
-      ppmReal >= 90  && ppmReal < 120 ? 8  :
-      ppmReal >= 120 && ppmReal <= 160 ? 10 :
-      ppmReal >= 161 && ppmReal <= 200 ? 8  : 6;
-
-    const comentarioFluidez =
-      ppmReal === 0           ? 'No se detectó velocidad de lectura.' :
-      ppmReal < 60            ? `Leíste a ${ppmReal} PPM. Velocidad muy lenta. El rango ideal es 120-150 PPM.` :
-      ppmReal < 90            ? `Leíste a ${ppmReal} PPM. Velocidad por debajo del promedio. Practica con textos cronometrados.` :
-      ppmReal < 120           ? `Leíste a ${ppmReal} PPM. Buen ritmo, estás acercándote al rango ideal de 120-150 PPM.` :
-      ppmReal <= 160          ? `¡Excelente! ${ppmReal} PPM está en el rango ideal de lectura fluida.` :
-      ppmReal <= 200          ? `Leíste a ${ppmReal} PPM, un poco rápido. A veces la velocidad afecta la comprensión.` :
-                                `${ppmReal} PPM es muy rápido. Reduce el ritmo para mejorar la comprensión.`;
-
-    // ── Pasar transcripción a localAnalyzer solo para dicción ─
-    const analisis = analizarLecturaLocal({
+    // FIX: antes calculábamos precisión/fluidez a mano usando calcularPosicion
+    // (el tracker secuencial que construimos para animar el coloreado en vivo).
+    // Ese tracker usa ventanas de búsqueda angostas para resincronizarse; si el
+    // reconocimiento de voz se traba en una frase difícil (números, términos
+    // técnicos), el tracker puede quedar pegado ahí para siempre y arrastrar
+    // una precisión/PPM erróneos aunque el resto de la lectura sea correcta.
+    //
+    // localAnalyzer.js (el mismo motor que YA funciona bien en el proyecto
+    // completo) resuelve esto de otra forma: analizarPrecision() no requiere
+    // sincronía secuencial, solo verifica —sin importar el orden— si cada
+    // palabra dicha existe en el texto de referencia. Es mucho más tolerante
+    // a tropiezos puntuales del reconocimiento de voz. Aquí reusamos ese mismo
+    // motor en vez de reinventar el cálculo en el demo.
+    const resultadoAnalisis = analizarLecturaLocal({
       transcripcion:   transRaw,
       textoReferencia: textoSel?.texto || '',
-      tiempoSegundos:  tiempoReal,
-      modoLectura:     'libre', // libre = no calcula precisión (la calculamos nosotros)
+      tiempoSegundos:  tiempoCapturado,
+      modoLectura:     'guiada', // ← ahora SÍ calcula precisión con el método probado
       modoIdioma:      { leer: 'es' },
       alumnoNombre:    esAlumno ? `Alumno Grupo ${grupo}` : 'Invitado',
-    }) || {};
-
-    // ── Construir resultado final con valores propios ─────────
-    const precision    = { puntuacion: puntuacionPrecision, comentario: comentarioPrecision };
-    const fluidez      = { puntuacion: puntuacionFluidez,  comentario: comentarioFluidez };
-    const diccion      = analisis.diccion      || { puntuacion: 6, comentario: 'Vocabulario detectado.' };
-    const pausas       = { puntuacion: 7, comentario: 'Análisis de pausas disponible en modo IA.' };
-    const expresividad = { puntuacion: 7, comentario: 'Análisis de expresividad disponible en modo IA.' };
-
-    // ── Calificación ponderada ────────────────────────────────
-    const suma =
-      precision.puntuacion    * 0.40 +
-      fluidez.puntuacion      * 0.30 +
-      diccion.puntuacion      * 0.15 +
-      pausas.puntuacion       * 0.08 +
-      expresividad.puntuacion * 0.07;
-
-    const calificacionFinal = Math.round(suma * 10) / 10;
-
-    // ── Fortalezas y áreas a mejorar ─────────────────────────
-    const fortalezas = [];
-    const areasAMejorar = [];
-    if (puntuacionPrecision >= 8) fortalezas.push('Alta fidelidad al texto de referencia');
-    if (puntuacionFluidez   >= 8) fortalezas.push('Velocidad de lectura en rango ideal');
-    if (diccion.puntuacion  >= 8) fortalezas.push('Buen vocabulario y variedad léxica');
-    if (fortalezas.length === 0)  fortalezas.push('Completaste la lectura con esfuerzo y dedicación');
-    if (puntuacionPrecision < 7)  areasAMejorar.push('Leer más despacio para seguir el texto con precisión');
-    if (puntuacionFluidez   < 7)  areasAMejorar.push('Practicar la velocidad de lectura diariamente');
-    if (diccion.puntuacion  < 6)  areasAMejorar.push('Ampliar el vocabulario con lectura variada');
-
-    const comentarioGeneral =
-      calificacionFinal >= 9  ? `¡Lectura sobresaliente! Demostraste dominio en fluidez y precisión.` :
-      calificacionFinal >= 7  ? `Buena lectura. Los resultados muestran un lector en desarrollo con áreas de mejora.` :
-      calificacionFinal >= 5  ? `Lectura en proceso de desarrollo. Se recomienda práctica diaria de 10-15 minutos.` :
-                                `Necesita apoyo adicional en lectura. Comienza con textos más cortos y sencillos.`;
-
-    setResultado({
-      calificacionFinal,
-      puntosGanados: Math.round((calificacionFinal / 10) * 30),
-      palabrasPorMinuto: ppmReal,
-      numeroPalabras: posConfirmada,
-      comentarioGeneral,
-      precision, fluidez, diccion, pausas, expresividad,
-      fortalezas, areasAMejorar,
-      modoAnalisis: 'local',
     });
+
+    if (!resultadoAnalisis) {
+      setMicError('No se detectó suficiente texto para analizar. Intenta de nuevo hablando más cerca del micrófono.');
+      setPantalla('practica');
+      return;
+    }
+
+    setResultado(resultadoAnalisis);
     setPantalla('resultado');
   }, [detener, textoSel, esAlumno, grupo]);
 
@@ -459,9 +384,14 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       let bold  = false;
       if (grabando || resultado) {
         if (i < posActual) {
-          const leidas = transcripcion.trim().split(/\s+/);
-          const sim = similitud(p, leidas[i] || '');
-          color = sim >= 0.70 ? '#4CAF50' : '#EF5350';
+          // FIX: antes se comparaba textoSel[i] contra transcripcion[i] por
+          // índice crudo — pero esos índices no corresponden entre sí en
+          // cuanto hay una sola omisión/inserción (muy común en reconocimiento
+          // de voz), así que palabras leídas correctamente se pintaban en rojo
+          // por error. Si el tracker (calcularPosicion) ya avanzó el cursor
+          // más allá de esta palabra, es porque SÍ encontró una coincidencia
+          // aceptable en algún punto de la transcripción — confiamos en eso.
+          color = '#4CAF50';
         } else if (i === posActual && grabando) {
           bg    = 'rgba(14,165,233,0.2)';
           color = '#29B6F6';
