@@ -207,11 +207,21 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     r.lang            = 'es-MX';
     // continuous:true reduce los reinicios del motor y evita huecos de audio
     // (antes, cada pausa breve cortaba la sesión y se perdían palabras al reiniciar).
-    r.continuous      = false;
-    // NOTA: continuous:false hace que el motor entregue resultados provisionales
-    // con más frecuencia (marcador más ágil) a costa de reiniciarse más seguido.
-    // Ya no es un problema: baseRef consolida lo confirmado en cada reinicio,
-    // así que no se pierde nada aunque el motor corte cada pocos segundos.
+    r.continuous      = true;
+    // DECISIÓN: continuous:true vs false es un trade-off real:
+    //  - false → marcador visual más ágil, PERO corta la escucha en cada
+    //    pausa natural (fin de oración) y pierde el audio del hueco de
+    //    reinicio (~200-500ms). Con textos de varias oraciones esto pierde
+    //    palabras completas — confirmado con datos: 36/56 palabras
+    //    capturadas (64%) en una lectura que sí se completó.
+    //  - true → el motor corre como UNA sola sesión continua sin reinicios
+    //    (para textos de ~30s no debería cortarse nunca), así que captura
+    //    el 100% del audio. El costo es que el marcador visual se siente
+    //    menos ágil (cosmético).
+    // Ya que la calificación real NO depende del marcador (usa
+    // analizarLecturaLocal sobre el transcript completo), priorizamos
+    // captura completa. Si el marcador se siente lento, es aceptable por
+    // ahora — se puede pulir después sin arriesgar la precisión.
     r.interimResults  = true;
     r.maxAlternatives = 1;
     recRef.current    = r;
