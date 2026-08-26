@@ -3,7 +3,7 @@ import { signOut } from 'firebase/auth';
 import { getAuth } from 'firebase/auth';
 import { initializeApp, getApps } from 'firebase/app';
 import { db } from './firebase';
-import { collection, getDocs, query, where, doc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { analizarLecturaLocal } from './localAnalyzer';
 
 const _fbConfig = {
@@ -125,6 +125,13 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   const grupo       = localStorage.getItem('iapprende_grupo')   || '';
   const escuela     = localStorage.getItem('iapprende_escuela') || '';
 
+  // ── Detección de compatibilidad de reconocimiento de voz ──
+  // esIOS: Apple obliga a TODOS los navegadores (Chrome, Safari, etc.) a usar
+  // el motor WebKit en iPhone/iPad. El soporte de reconocimiento de voz ahí
+  // es limitado e inconsistente — mejor avisar antes que dejar un error críptico.
+  const esIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const soportaVoz = typeof window !== 'undefined' && !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+
   const [pantalla, setPantalla]     = useState('selector');
   const [textoSel, setTextoSel]     = useState(null);
   const [grabando, setGrabando]     = useState(false);
@@ -136,9 +143,6 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   const [alumnos, setAlumnos]       = useState([]);
   const [cargMet, setCargMet]       = useState(false);
   const [periodo, setPeriodo]       = useState('tri1');
-  const [mostrarQR, setMostrarQR]   = useState(false);
-  const [faseQR, setFaseQR]         = useState('esperando'); // esperando | conectado | grabando | completado
-  const [sesionQRId, setSesionQRId] = useState('');
 
   const recRef      = useRef(null);
   const timerRef    = useRef(null);
@@ -149,7 +153,6 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   const grabandoRef = useRef(false);
   const palabrasRef = useRef([]);
   const posRef      = useRef(0);
-  const unsubQRRef  = useRef(null);
 
   const cerrarSesion = async () => {
     detener();
@@ -204,7 +207,11 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     r.lang            = 'es-MX';
     // continuous:true reduce los reinicios del motor y evita huecos de audio
     // (antes, cada pausa breve cortaba la sesión y se perdían palabras al reiniciar).
-    r.continuous      = true;
+    r.continuous      = false;
+    // NOTA: continuous:false hace que el motor entregue resultados provisionales
+    // con más frecuencia (marcador más ágil) a costa de reiniciarse más seguido.
+    // Ya no es un problema: baseRef consolida lo confirmado en cada reinicio,
+    // así que no se pierde nada aunque el motor corte cada pocos segundos.
     r.interimResults  = true;
     r.maxAlternatives = 1;
     recRef.current    = r;
@@ -428,71 +435,6 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     finalizarLectura(transRef.current);
   };
 
-  // ── QR: celular como micrófono remoto ──────────────────────
-  // Usa Firestore como canal en tiempo real (mismo `db` que ya usa
-  // el resto del componente). No depende del backend de api.iapprende.com.
-  const cerrarQR = useCallback(() => {
-    if (unsubQRRef.current) { unsubQRRef.current(); unsubQRRef.current = null; }
-    setMostrarQR(false);
-    setSesionQRId('');
-    setFaseQR('esperando');
-  }, []);
-
-  const abrirQR = async () => {
-    if (!textoSel) return;
-    detener(); // por si había algo grabando en la PC
-
-    const id = `demo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    setSesionQRId(id);
-    setFaseQR('esperando');
-    setMostrarQR(true);
-
-    try {
-      await setDoc(doc(db, 'demo_mic_sessions', id), {
-        textoTitulo:        textoSel.titulo,
-        textoContenido:     textoSel.texto,
-        estado:             'esperando',
-        transcripcionLive:  '',
-        transcripcionFinal: '',
-        tiempoSegundos:     0,
-        creadoEn:           Date.now(),
-      });
-    } catch (e) {
-      console.error('Error creando sesión QR:', e);
-      setMicError('No se pudo generar el código QR. Revisa tu conexión.');
-      cerrarQR();
-      return;
-    }
-
-    if (unsubQRRef.current) unsubQRRef.current();
-    unsubQRRef.current = onSnapshot(doc(db, 'demo_mic_sessions', id), (snap) => {
-      if (!snap.exists()) return;
-      const data = snap.data();
-
-      if (data.estado === 'conectado' || data.estado === 'grabando' || data.estado === 'completado') {
-        setFaseQR(data.estado);
-      }
-
-      // Mostrar transcripción en vivo mientras el alumno lee en su celular
-      if (data.transcripcionLive) {
-        setTrans(data.transcripcionLive);
-        const pos = calcularPosicion(palabrasRef.current, data.transcripcionLive);
-        setPosActual(pos);
-      }
-
-      // El celular terminó y mandó la transcripción final
-      if (data.estado === 'completado' && data.transcripcionFinal) {
-        if (unsubQRRef.current) { unsubQRRef.current(); unsubQRRef.current = null; }
-        setMostrarQR(false);
-        segsRef.current = data.tiempoSegundos || 1;
-        setSegundos(data.tiempoSegundos || 1);
-        finalizarLectura(data.transcripcionFinal, data.tiempoSegundos || 1);
-      }
-    });
-  };
-
-  useEffect(() => () => { if (unsubQRRef.current) unsubQRRef.current(); }, []);
-
   useEffect(() => () => { detener(); }, []);
 
   // ── Métricas grupo ────────────────────────────────────────
@@ -665,6 +607,18 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
               </div>
             )}
 
+            {!soportaVoz && (
+              <div style={{ background:'rgba(239,83,80,0.08)', border:'1px solid rgba(239,83,80,0.25)', borderRadius:'10px', padding:'10px 14px', fontSize:'0.78rem', color:'#EF9A9A', lineHeight:1.5 }}>
+                ⚠️ Este navegador no soporta reconocimiento de voz. Usa <strong>Chrome</strong> para poder leer.
+              </div>
+            )}
+
+            {soportaVoz && esIOS && (
+              <div style={{ background:'rgba(255,193,7,0.08)', border:'1px solid rgba(255,193,7,0.25)', borderRadius:'10px', padding:'10px 14px', fontSize:'0.75rem', color:'#FFD54F', lineHeight:1.5 }}>
+                💡 Estás en iPhone/iPad — el reconocimiento de voz ahí puede ser menos preciso o cortarse más seguido (limitación de Apple, no del demo). Si puedes, prueba desde una computadora o un celular Android para mejor resultado.
+              </div>
+            )}
+
             {micError && (
               <div style={{ background:'rgba(239,83,80,0.08)', border:'1px solid rgba(239,83,80,0.25)', borderRadius:'10px', padding:'10px 14px', fontSize:'0.78rem', color:'#EF9A9A' }}>
                 ⚠️ {micError}
@@ -702,17 +656,41 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
               </div>
             )}
 
+            {/* ── PANEL DE DIAGNÓSTICO TEMPORAL ──────────────────────
+                Quitar una vez resuelto el bug de precisión/fluidez.
+                Muestra el transcript COMPLETO capturado (no solo las
+                últimas 15 palabras) para poder comparar palabra por
+                palabra contra el texto de referencia y ver EXACTAMENTE
+                dónde se desincroniza el matcher. */}
+            {(grabando || resultado) && (
+              <details style={{ background:'rgba(255,193,7,0.05)', border:'1px dashed rgba(255,193,7,0.3)', borderRadius:'10px', padding:'8px 12px' }}>
+                <summary style={{ cursor:'pointer', fontSize:'0.68rem', color:'#FFD54F', fontWeight:700 }}>
+                  🔧 Diagnóstico (temporal) — {posActual}/{palabrasRef.current.length} palabras · {transcripcion.trim().split(/\s+/).filter(Boolean).length} palabras crudas escuchadas
+                </summary>
+                <div style={{ marginTop:8, display:'flex', flexDirection:'column', gap:6 }}>
+                  <div>
+                    <p style={{ margin:'0 0 2px', fontSize:'0.6rem', color:'rgba(255,255,255,0.35)' }}>TEXTO DE REFERENCIA:</p>
+                    <p style={{ margin:0, fontSize:'0.72rem', color:'rgba(255,255,255,0.55)', fontFamily:'monospace', lineHeight:1.5, wordBreak:'break-word' }}>
+                      {textoSel?.texto}
+                    </p>
+                  </div>
+                  <div>
+                    <p style={{ margin:'0 0 2px', fontSize:'0.6rem', color:'rgba(255,255,255,0.35)' }}>TRANSCRIPT CRUDO COMPLETO (lo que el motor escuchó):</p>
+                    <p style={{ margin:0, fontSize:'0.72rem', color:'#81C784', fontFamily:'monospace', lineHeight:1.5, wordBreak:'break-word' }}>
+                      {transcripcion || '(nada capturado aún)'}
+                    </p>
+                  </div>
+                </div>
+              </details>
+            )}
+
             {/* Botones */}
             <div style={{ display:'flex', gap:'10px', justifyContent:'center', flexWrap:'wrap' }}>
               {!grabando && (
                 <>
                   <button onClick={() => iniciarGrabacion(!!transcripcion)}
                     style={{ background:'#29B6F6', color:'#000', border:'none', borderRadius:'10px', padding:'12px 32px', fontSize:'0.95rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px', boxShadow:'0 0 18px rgba(41,182,246,0.35)' }}>
-                    {transcripcion ? '▶️ Reanudar' : '🎙️ Iniciar lectura (PC)'}
-                  </button>
-                  <button onClick={abrirQR}
-                    style={{ background:'rgba(10,132,255,0.1)', color:'#0a84ff', border:'2px solid rgba(10,132,255,0.4)', borderRadius:'10px', padding:'12px 24px', fontSize:'0.9rem', fontWeight:'700', cursor:'pointer', display:'flex', alignItems:'center', gap:'7px' }}>
-                    📱 Usar celular (QR)
+                    {transcripcion ? '▶️ Reanudar' : '🎙️ Iniciar lectura'}
                   </button>
                 </>
               )}
@@ -860,55 +838,6 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
           </div>
         )}
       </div>
-
-      {/* ══ MODAL QR — celular como micrófono remoto ══ */}
-      {mostrarQR && (
-        <div onClick={faseQR === 'esperando' ? cerrarQR : undefined}
-          style={{ position:'fixed', inset:0, zIndex:99999, background:'rgba(0,0,0,0.92)', display:'flex', alignItems:'center', justifyContent:'center', padding:'20px' }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background:'#0a0e27', border:'1px solid rgba(10,132,255,0.4)', borderRadius:24, padding:32, maxWidth:400, width:'100%', textAlign:'center' }}>
-            <p style={{ color:'#0a84ff', fontWeight:700, fontSize:'0.8rem', letterSpacing:'0.1em', margin:'0 0 6px' }}>📱 MICRÓFONO QR</p>
-            <p style={{ color:'#fff', fontSize:15, fontWeight:600, margin:'0 0 18px' }}>{textoSel?.titulo}</p>
-
-            {faseQR === 'esperando' && sesionQRId && (
-              <div style={{ background:'#fff', borderRadius:16, padding:12, display:'inline-block', marginBottom:18 }}>
-                <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`https://lectura.iapprende.com/mic-demo/${sesionQRId}`)}`}
-                  alt="Código QR" style={{ width:200, height:200, display:'block' }}
-                />
-              </div>
-            )}
-
-            {(faseQR === 'grabando' || faseQR === 'conectado') && (
-              <div style={{ fontSize:'3.5rem', marginBottom:16 }}>🎙️</div>
-            )}
-
-            <p style={{ margin:'0 0 14px', color: faseQR==='grabando' ? '#4CAF50' : '#29B6F6', fontSize:13, fontWeight:600 }}>
-              {faseQR === 'esperando' && '⏳ Esperando que el alumno escanee...'}
-              {faseQR === 'conectado' && '📱 Celular conectado — esperando inicio...'}
-              {faseQR === 'grabando'  && '🔴 Grabando en el celular...'}
-            </p>
-
-            {faseQR === 'esperando' && (
-              <>
-                <p style={{ margin:'0 0 14px', color:'rgba(255,255,255,0.4)', fontSize:11, lineHeight:1.5 }}>
-                  El alumno escanea el QR con su celular, toca "Iniciar lectura" y lee en voz alta. Al terminar toca "Terminé, enviar" — el análisis aparece aquí automáticamente.
-                </p>
-                <button onClick={cerrarQR}
-                  style={{ background:'rgba(239,83,80,0.12)', border:'1px solid #EF5350', borderRadius:20, padding:'8px 20px', color:'#EF5350', cursor:'pointer', fontSize:12, fontWeight:600 }}>
-                  Cancelar
-                </button>
-              </>
-            )}
-
-            {faseQR === 'grabando' && (
-              <p style={{ margin:0, color:'rgba(255,255,255,0.4)', fontSize:11, lineHeight:1.5 }}>
-                La transcripción se está recibiendo en vivo. El alumno toca "Terminé" cuando acabe de leer.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
