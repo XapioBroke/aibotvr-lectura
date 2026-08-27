@@ -162,6 +162,12 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   // iniciarSesion siempre invoca la versión actual, sin importar cuándo
   // fue creado su propio closure.
   const finalizarLecturaRef = useRef(null);
+  // Tracking de tiempo real entre fragmentos confirmados del motor —
+  // para medir pausas/expresividad con datos reales en vez de depender
+  // de puntuación que el reconocimiento de voz casi nunca devuelve.
+  const gapsPausaRef      = useRef([]);  // milisegundos entre fragmentos confirmados
+  const prevFinalLenRef   = useRef(0);   // largo del sessionFinal en el evento anterior
+  const lastFinalTsRef    = useRef(null);// timestamp del último fragmento confirmado
 
   const cerrarSesion = async () => {
     detener();
@@ -195,6 +201,9 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       baseRef.current = '';
       sessionFinalRef.current = '';
       segsRef.current  = 0;
+      gapsPausaRef.current    = [];
+      prevFinalLenRef.current = 0;
+      lastFinalTsRef.current  = null;
       setTrans('');
       setPosActual(0);
       setSegundos(0);
@@ -251,6 +260,19 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       }
       sessionFinalRef.current = sessionFinal;
 
+      // Cada vez que crece el texto confirmado, registrar cuánto tiempo
+      // pasó desde el fragmento confirmado anterior — esto SÍ refleja
+      // pausas reales del lector (silencios entre frases), a diferencia
+      // de contar puntuación que el reconocimiento de voz no devuelve.
+      if (sessionFinal.length > prevFinalLenRef.current) {
+        const ahora = Date.now();
+        if (lastFinalTsRef.current) {
+          gapsPausaRef.current.push(ahora - lastFinalTsRef.current);
+        }
+        lastFinalTsRef.current  = ahora;
+        prevFinalLenRef.current = sessionFinal.length;
+      }
+
       // Total visible = base de sesiones anteriores + confirmado de esta
       // sesión + lo que se está reconociendo ahora mismo.
       const total = (baseRef.current + ' ' + sessionFinal + ' ' + sessionInterim).trim();
@@ -282,6 +304,12 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
         baseRef.current = (baseRef.current + ' ' + sessionFinalRef.current).trim();
       }
       sessionFinalRef.current = '';
+
+      // Resetear el tracking POR SESIÓN de tiempos (no el arreglo acumulado
+      // de pausas, ese se conserva). El hueco técnico del reinicio del motor
+      // NO debe contarse como una pausa real del lector.
+      prevFinalLenRef.current = 0;
+      lastFinalTsRef.current  = null;
 
       if (grabandoRef.current) {
         setTimeout(() => {
@@ -325,6 +353,9 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       sessionFinalRef.current = '';
       segsRef.current  = 0;
       posRef.current   = 0;
+      gapsPausaRef.current    = [];
+      prevFinalLenRef.current = 0;
+      lastFinalTsRef.current  = null;
       setTrans('');
       setPosActual(0);
       setSegundos(0);
@@ -371,12 +402,80 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       return;
     }
 
-    // _motivoFin y _textoRefLen son solo diagnóstico temporal — quitar
-    // cuando quede confirmado por qué a veces el cierre es prematuro.
+    // ── Reemplazar Pausas/Expresividad con una versión basada en TIEMPO REAL ──
+    // localAnalyzer.js mide estas dos categorías contando signos de puntuación
+    // en el transcript — pero el reconocimiento de voz del navegador casi nunca
+    // devuelve puntuación, así que ambas quedan ancladas cerca del piso (4/10)
+    // sin importar qué tan bien pause o module la voz el lector. Aquí usamos
+    // los tiempos reales entre fragmentos confirmados (gapsPausaRef) en su lugar.
+    // Sigue siendo una aproximación heurística (no es análisis de audio real),
+    // pero ya no castiga automáticamente a todos por igual.
+    const gaps = gapsPausaRef.current;
+    const signosEnTexto = (textoSel?.texto.match(/[.,;:!?]/g) || []).length;
+
+    let pausas = resultadoAnalisis.pausas;
+    let expresividad = resultadoAnalisis.expresividad;
+
+    if (gaps.length > 0) {
+      const pausasLargas = gaps.filter(g => g > 450).length;
+      const ratioPausas  = signosEnTexto > 0 ? pausasLargas / signosEnTexto : (pausasLargas > 0 ? 1 : 0);
+
+      pausas = ratioPausas >= 0.8
+        ? { puntuacion: 9, comentario: `Se detectaron ${pausasLargas} pausas naturales durante la lectura. Buen manejo del ritmo.` }
+        : ratioPausas >= 0.5
+        ? { puntuacion: 7, comentario: `Se detectaron ${pausasLargas} pausas. Respetaste el ritmo en buena parte del texto.` }
+        : ratioPausas >= 0.25
+        ? { puntuacion: 5, comentario: `Pocas pausas detectadas (${pausasLargas}). Intenta hacer una breve pausa en los puntos y comas.` }
+        : { puntuacion: 4, comentario: 'Se detectaron muy pocas pausas. Recuerda respetar los puntos y comas del texto.' };
+
+      const media = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+      const varianza = gaps.reduce((a, g) => a + (g - media) ** 2, 0) / gaps.length;
+      const coefVariacion = media > 0 ? Math.sqrt(varianza) / media : 0;
+
+      expresividad = coefVariacion >= 0.6
+        ? { puntuacion: 8, comentario: 'Buena variación de ritmo entre frases — lectura con entonación dinámica.' }
+        : coefVariacion >= 0.3
+        ? { puntuacion: 6, comentario: 'Variación moderada de ritmo. Puedes marcar más la diferencia entre frases.' }
+        : { puntuacion: 4, comentario: 'Ritmo bastante uniforme. Trabaja en variar el tono y el ritmo para hacer la lectura más dinámica.' };
+    }
+    // Si no se detectaron fragmentos confirmados (gaps vacío, ej. lectura muy
+    // corta), se dejan los valores originales de localAnalyzer como respaldo.
+
+    // Recalcular calificación final y feedback con los valores corregidos
+    // de pausas/expresividad (los mismos pesos que usa localAnalyzer para
+    // modo 'guiada': fluidez 25%, diccion 20%, precision 25%, pausas 15%,
+    // expresividad 15%).
+    const categoriasFinales = {
+      fluidez:      resultadoAnalisis.fluidez,
+      diccion:      resultadoAnalisis.diccion,
+      precision:    resultadoAnalisis.precision,
+      pausas,
+      expresividad,
+    };
+    const pesos = { fluidez: 0.25, diccion: 0.20, precision: 0.25, pausas: 0.15, expresividad: 0.15 };
+    const sumaPonderada = Object.entries(categoriasFinales)
+      .reduce((acc, [key, val]) => acc + val.puntuacion * (pesos[key] || 0.15), 0);
+    const calificacionFinal = Math.round(sumaPonderada * 10) / 10;
+    const puntosGanados     = Math.round((calificacionFinal / 10) * 30);
+
+    const mensajesFortaleza = { fluidez: 'Velocidad de lectura en rango ideal', precision: 'Alta fidelidad al texto de referencia', pausas: 'Excelente manejo de pausas y ritmo', diccion: 'Vocabulario rico y variado', expresividad: 'Lectura expresiva y dinámica' };
+    const mensajesMejorar   = { fluidez: 'Trabajar la velocidad de lectura con práctica diaria', precision: 'Leer más despacio para seguir el texto con precisión', pausas: 'Hacer pausas breves en los puntos y comas', diccion: 'Ampliar el vocabulario con lectura variada', expresividad: 'Variar el tono y ritmo de la voz al leer' };
+    const fortalezas = Object.entries(categoriasFinales).filter(([, v]) => v.puntuacion >= 8).map(([k]) => mensajesFortaleza[k]).filter(Boolean);
+    const areasAMejorar = Object.entries(categoriasFinales).filter(([, v]) => v.puntuacion < 6).map(([k]) => mensajesMejorar[k]).filter(Boolean);
+
+    // _motivoFin, _textoRefLen y _gaps son solo diagnóstico temporal — quitar
+    // cuando quede confirmado que todo funciona de forma consistente.
     setResultado({
       ...resultadoAnalisis,
+      pausas,
+      expresividad,
+      calificacionFinal,
+      puntosGanados,
+      fortalezas:    fortalezas.length ? fortalezas : ['Completaste la lectura con esfuerzo y dedicación'],
+      areasAMejorar: areasAMejorar.length ? areasAMejorar : ['Continuar practicando la lectura en voz alta diariamente'],
       _motivoFin: motivo,
       _textoRefLen: (textoSel?.texto || '').split(/\s+/).filter(Boolean).length,
+      _gaps: gaps,
     });
     setPantalla('resultado');
   }, [detener, textoSel, esAlumno, grupo]);
@@ -408,13 +507,20 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   };
 
   // ── Render texto con colores ──────────────────────────────
+  // enProgreso: hay algo que mostrar aunque esté en pausa (grabando=false
+  // pero con transcripción ya acumulada). Antes, pausar ocultaba TODO el
+  // progreso visual (coloreado, métricas, transcript en vivo) porque las
+  // condiciones solo miraban `grabando` — daba la impresión de que se
+  // había reiniciado, aunque los datos internos sí se conservaban.
+  const enProgreso = grabando || (!!transcripcion && !resultado);
+
   const renderTexto = () => {
     if (!textoSel) return null;
     return textoSel.texto.split(/\s+/).map((p, i) => {
       let color = 'rgba(255,255,255,0.55)';
       let bg    = 'transparent';
       let bold  = false;
-      if (grabando || resultado) {
+      if (enProgreso || resultado) {
         if (i < posActual) {
           // FIX: antes se comparaba textoSel[i] contra transcripcion[i] por
           // índice crudo — pero esos índices no corresponden entre sí en
@@ -556,16 +662,22 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
             <div style={{ display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap' }}>
               <span style={{ background:textoSel.color+'22', border:`1px solid ${textoSel.color}55`, borderRadius:'100px', padding:'2px 10px', fontSize:'0.66rem', fontWeight:'700', color:textoSel.color }}>{textoSel.nivel}</span>
               <h2 style={{ color:'#29B6F6', margin:0, fontSize:'1.2rem', fontFamily:'Georgia, serif' }}>{textoSel.titulo}</h2>
-              {grabando && (
+              {enProgreso && (
                 <span style={{ marginLeft:'auto', fontSize:'0.72rem', color:'rgba(255,255,255,0.4)' }}>
-                  {posActual}/{palabrasRef.current.length} palabras
+                  {posActual}/{palabrasRef.current.length} palabras {!grabando && '(en pausa)'}
                 </span>
               )}
             </div>
 
-            {!grabando && !resultado && (
+            {!grabando && !resultado && !transcripcion && (
               <div style={{ background:'rgba(41,182,246,0.07)', border:'1px solid rgba(41,182,246,0.18)', borderRadius:'10px', padding:'10px 14px', fontSize:'0.78rem', color:'rgba(255,255,255,0.55)', lineHeight:1.6 }}>
                 🎙️ Presiona <strong style={{ color:'#29B6F6' }}>Iniciar lectura</strong> y lee el texto en voz alta a ritmo natural. Las palabras se colorearán conforme avances.
+              </div>
+            )}
+
+            {!grabando && transcripcion && !resultado && (
+              <div style={{ background:'rgba(255,193,7,0.07)', border:'1px solid rgba(255,193,7,0.18)', borderRadius:'10px', padding:'10px 14px', fontSize:'0.78rem', color:'#FFD54F', lineHeight:1.6 }}>
+                ⏸ En pausa — tu progreso está guardado. Presiona <strong>Reanudar</strong> para continuar exactamente donde te quedaste.
               </div>
             )}
 
@@ -592,9 +704,9 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
               {renderTexto()}
             </div>
 
-            {/* Métricas en vivo */}
-            {grabando && (
-              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
+            {/* Métricas — se mantienen visibles (congeladas) durante la pausa */}
+            {enProgreso && (
+              <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', opacity: grabando ? 1 : 0.55 }}>
                 {[
                   { l:'Tiempo',    v:`${min}:${String(seg).padStart(2,'0')}`, c:'#29B6F6' },
                   { l:'Palabras',  v:`${posActual}/${palabrasRef.current.length}`, c:'#4CAF50' },
@@ -608,10 +720,10 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
               </div>
             )}
 
-            {/* Transcripción en vivo */}
-            {grabando && transcripcion && (
+            {/* Transcripción en vivo — se mantiene visible (congelada) en pausa */}
+            {enProgreso && transcripcion && (
               <div style={{ background:'rgba(0,0,0,0.25)', border:'1px solid rgba(255,255,255,0.05)', borderRadius:'10px', padding:'10px 14px' }}>
-                <p style={{ margin:'0 0 3px', fontSize:'0.6rem', color:'rgba(255,255,255,0.25)', letterSpacing:'0.1em' }}>ESCUCHANDO...</p>
+                <p style={{ margin:'0 0 3px', fontSize:'0.6rem', color:'rgba(255,255,255,0.25)', letterSpacing:'0.1em' }}>{grabando ? 'ESCUCHANDO...' : 'EN PAUSA...'}</p>
                 <p style={{ margin:0, fontSize:'0.78rem', color:'rgba(255,255,255,0.45)', lineHeight:1.5, fontStyle:'italic' }}>
                   "{transcripcion.split(' ').slice(-15).join(' ')}"
                 </p>
@@ -624,7 +736,7 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
                 últimas 15 palabras) para poder comparar palabra por
                 palabra contra el texto de referencia y ver EXACTAMENTE
                 dónde se desincroniza el matcher. */}
-            {(grabando || resultado) && (
+            {(enProgreso || resultado) && (
               <details style={{ background:'rgba(255,193,7,0.05)', border:'1px dashed rgba(255,193,7,0.3)', borderRadius:'10px', padding:'8px 12px' }}>
                 <summary style={{ cursor:'pointer', fontSize:'0.68rem', color:'#FFD54F', fontWeight:700 }}>
                   🔧 Diagnóstico (temporal) — {posActual}/{palabrasRef.current.length} palabras · {transcripcion.trim().split(/\s+/).filter(Boolean).length} palabras crudas escuchadas
