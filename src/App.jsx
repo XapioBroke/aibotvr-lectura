@@ -1,6 +1,5 @@
 // ─────────────────────────────────────────────────────────────
-// App.jsx — REFACTORIZADO con Zustand
-// De 17 useState a 0. Todo el estado vive en store.js
+// App.jsx — REFACTORIZADO TIER-1 (Aura Core Holográfico)
 // ─────────────────────────────────────────────────────────────
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,7 +13,7 @@ import { narrarBienvenida, setMuteado, detener } from './voiceService';
 import './App.css';
 
 // ─────────────────────────────────────────────────────────────
-// ANIMACIÓN DE PÁGINAS (sin cambios)
+// ANIMACIÓN DE PÁGINAS
 // ─────────────────────────────────────────────────────────────
 const pageVariants = {
   initial: { opacity: 0, x: -20 },
@@ -23,40 +22,78 @@ const pageVariants = {
 };
 
 // ─────────────────────────────────────────────────────────────
-// VENTANA DE INSPIRACIÓN AURA (sin cambios de lógica)
+// VENTANA DE INSPIRACIÓN AURA — TIER 1 HOLOGRAPHIC CORE
 // ─────────────────────────────────────────────────────────────
 const AuraInspirationWindow = () => {
   const [index, setIndex] = React.useState(0);
   const frases = [
-    { texto: '«Un lector vive mil vidas antes de morir.»',                      autor: 'George R.R. Martin' },
-    { texto: '«Today a reader, tomorrow a leader.»',                            autor: 'Margaret Fuller'    },
-    { texto: '«Tu voz es la tecnología más poderosa para descubrir el mundo.»', autor: 'Aura Core'         },
-    { texto: '«The more that you read, the more things you will know.»',        autor: 'Dr. Seuss'         },
+    { texto: '«Un lector vive mil vidas antes de morir.»',                         autor: 'George R.R. Martin' },
+    { texto: '«Today a reader, tomorrow a leader.»',                             autor: 'Margaret Fuller'    },
+    { texto: '«Tu voz es la tecnología más poderosa para descubrir el mundo.»', autor: 'Aura Core'          },
+    { texto: '«The more that you read, the more things you will know.»',         autor: 'Dr. Seuss'          },
     { texto: '«La lectura hace al hombre completo; la conversación lo hace ágil.»', autor: 'Francis Bacon' },
   ];
+
   useEffect(() => {
     const t = setInterval(() => setIndex(p => (p + 1) % frases.length), 6000);
     return () => clearInterval(t);
   }, []);
+
   return (
     <div className="aura-hero-container">
       <div className="aura-background-overlay" />
+      
+      {/* 🌌 Capas de Iluminación Dinámica de Grado Comercial */}
+      <div className="aura-ambient-glow glow-primary" />
+      <div className="aura-ambient-glow glow-secondary" />
+
       <div className="aura-content-wrapper">
-        <div className="aura-brain-icon">🧠</div>
+        
+        {/* NÚCLEO HOLOGRÁFICO TIER-1 (Reemplaza el emoji amateur) */}
+        <div className="aura-holographic-core-wrapper">
+          <motion.div 
+            className="aura-core-ring ring-outer"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+          />
+          <motion.div 
+            className="aura-core-ring ring-inner"
+            animate={{ rotate: -360 }}
+            transition={{ duration: 18, repeat: Infinity, ease: "linear" }}
+          />
+          <motion.div 
+            className="aura-core-sphere"
+            animate={{ 
+              scale: [1, 1.06, 1],
+              filter: [
+                'drop-shadow(0 0 25px rgba(10, 132, 255, 0.4))',
+                'drop-shadow(0 0 45px rgba(94, 92, 230, 0.7))',
+                'drop-shadow(0 0 25px rgba(10, 132, 255, 0.4))'
+              ]
+            }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          >
+            <div className="core-inner-mesh" />
+            <div className="core-core-light" />
+          </motion.div>
+        </div>
+
         <AnimatePresence mode="wait">
           <motion.div
             key={index} className="aura-quote-box"
-            initial={{ opacity: 0, y: 20, filter: 'blur(5px)' }}
+            initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
             animate={{ opacity: 1, y: 0,  filter: 'blur(0px)' }}
-            exit={  { opacity: 0, y: -20, filter: 'blur(5px)' }}
-            transition={{ duration: 0.8, ease: 'easeOut' }}
+            exit={  { opacity: 0, y: -20, filter: 'blur(8px)' }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           >
             <h2 className="aura-quote-text">{frases[index].texto}</h2>
             <p className="aura-quote-author">— {frases[index].autor}</p>
           </motion.div>
         </AnimatePresence>
+
         <div className="aura-standby-indicator">
-          <span className="pulse-dot" /> SISTEMA IA EN ESPERA
+          <span className="pulse-dot" /> 
+          <span className="standby-label">AURA CORE // ACTIVE TELEMETRY</span>
         </div>
       </div>
     </div>
@@ -64,7 +101,7 @@ const AuraInspirationWindow = () => {
 };
 
 // ─────────────────────────────────────────────────────────────
-// COMPONENTE HEADER iOS (sin cambios)
+// COMPONENTE HEADER iOS
 // ─────────────────────────────────────────────────────────────
 const IosHeader = ({ titulo, onBack }) => (
   <div className="ios-header">
@@ -77,25 +114,23 @@ const IosHeader = ({ titulo, onBack }) => (
 );
 
 // ─────────────────────────────────────────────────────────────
-// APP PRINCIPAL — ahora sin estado local
+// APP PRINCIPAL
 // ─────────────────────────────────────────────────────────────
 function App() {
-  // ── Leer estado del store (granular = renders óptimos) ──
-  const mostrarIntro        = useAuraStore(s => s.mostrarIntro);
-  const vista               = useAuraStore(s => s.vista);
-  const escuelaSeleccionada = useAuraStore(s => s.escuelaSeleccionada);
-  const grupoSeleccionado   = useAuraStore(s => s.grupoSeleccionado);
-  const alumnoSeleccionado  = useAuraStore(s => s.alumnoSeleccionado);
-  const alumnos             = useAuraStore(s => s.alumnos);
-  const modoEdicion         = useAuraStore(s => s.modoEdicion);
-  const ultimaAccion        = useAuraStore(s => s.ultimaAccion);
-  const modoIdioma          = useAuraStore(s => s.modoIdioma);
-  const temaLectura         = useAuraStore(s => s.temaLectura);
-  const generandoTexto      = useAuraStore(s => s.generandoTexto);
-  const textoReferencia     = useAuraStore(s => s.textoReferencia);
-  const ultimoPuntaje       = useAuraStore(s => s.ultimoPuntaje);
+  const mostrarIntro         = useAuraStore(s => s.mostrarIntro);
+  const vista                = useAuraStore(s => s.vista);
+  const escuelaSeleccionada  = useAuraStore(s => s.escuelaSeleccionada);
+  const grupoSeleccionado    = useAuraStore(s => s.grupoSeleccionado);
+  const alumnoSeleccionado   = useAuraStore(s => s.alumnoSeleccionado);
+  const alumnos              = useAuraStore(s => s.alumnos);
+  const modoEdicion          = useAuraStore(s => s.modoEdicion);
+  const ultimaAccion         = useAuraStore(s => s.ultimaAccion);
+  const modoIdioma           = useAuraStore(s => s.modoIdioma);
+  const temaLectura          = useAuraStore(s => s.temaLectura);
+  const generandoTexto       = useAuraStore(s => s.generandoTexto);
+  const textoReferencia      = useAuraStore(s => s.textoReferencia);
+  const ultimoPuntaje        = useAuraStore(s => s.ultimoPuntaje);
 
-  // ── Leer acciones del store ──
   const completarIntro        = useAuraStore(s => s.completarIntro);
   const irAVista              = useAuraStore(s => s.irAVista);
   const seleccionarEscuela    = useAuraStore(s => s.seleccionarEscuela);
@@ -118,18 +153,12 @@ function App() {
 
   const [mostrarCierre, setMostrarCierre] = React.useState(false);
 
-  // ── Cargar alumnos automáticamente cuando cambia grupo/escuela ──
   useEffect(() => {
     if (escuelaSeleccionada && grupoSeleccionado) cargarAlumnos();
   }, [escuelaSeleccionada, grupoSeleccionado]);
 
-  // ── Intro ──
   if (mostrarIntro) return <IntroCinematica onComplete={completarIntro} />;
 
-  // ─────────────────────────────────────────────────────────
-  // RENDER PRINCIPAL — idéntico al original, solo cambian
-  // los handlers: antes setState, ahora acciones del store
-  // ─────────────────────────────────────────────────────────
   return (
     <>
       {mostrarCierre && (
