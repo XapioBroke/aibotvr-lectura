@@ -153,6 +153,15 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
   const grabandoRef = useRef(false);
   const palabrasRef = useRef([]);
   const posRef      = useRef(0);
+  // Ref que SIEMPRE apunta a la versión más reciente de finalizarLectura.
+  // iniciarSesion() solo se crea una vez (su único dep es `detener`, que
+  // nunca cambia), así que si llamara a finalizarLectura directamente
+  // quedaría con la versión del primer render (cuando textoSel aún era
+  // null) para siempre — causando que el cierre automático caiga en modo
+  // 'libre' sin precisión, aunque el código pida 'guiada'. Con esta ref,
+  // iniciarSesion siempre invoca la versión actual, sin importar cuándo
+  // fue creado su propio closure.
+  const finalizarLecturaRef = useRef(null);
 
   const cerrarSesion = async () => {
     detener();
@@ -258,8 +267,10 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       // modos ya no depende de `pos`, usa el motor robusto de localAnalyzer).
       const palabrasCrudas = total.trim().split(/\s+/).filter(Boolean).length;
       const largoEsperado  = palabrasRef.current.length;
-      if (pos >= largoEsperado * 0.95 || palabrasCrudas >= largoEsperado * 1.4) {
-        finalizarLectura(total);
+      if (pos >= largoEsperado * 0.95) {
+        finalizarLecturaRef.current?.(total, undefined, 'auto-posición 95%');
+      } else if (palabrasCrudas >= largoEsperado * 1.4) {
+        finalizarLecturaRef.current?.(total, undefined, 'auto-palabras crudas (respaldo)');
       }
     };
 
@@ -327,7 +338,7 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
     iniciarSesion();
   }, [iniciarSesion]);
 
-  const finalizarLectura = useCallback((transOverride, tiempoOverride) => {
+  const finalizarLectura = useCallback((transOverride, tiempoOverride, motivo = 'manual') => {
     const transRaw        = transOverride || transRef.current;
     const tiempoCapturado = tiempoOverride || (segsRef.current > 0 ? segsRef.current : 1);
     detener();
@@ -360,14 +371,25 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
       return;
     }
 
-    setResultado(resultadoAnalisis);
+    // _motivoFin y _textoRefLen son solo diagnóstico temporal — quitar
+    // cuando quede confirmado por qué a veces el cierre es prematuro.
+    setResultado({
+      ...resultadoAnalisis,
+      _motivoFin: motivo,
+      _textoRefLen: (textoSel?.texto || '').split(/\s+/).filter(Boolean).length,
+    });
     setPantalla('resultado');
   }, [detener, textoSel, esAlumno, grupo]);
+
+  // Mantiene la ref siempre sincronizada con la versión más reciente,
+  // para que iniciarSesion() (creado una sola vez) nunca llame a una
+  // versión vieja con textoSel desactualizado.
+  useEffect(() => { finalizarLecturaRef.current = finalizarLectura; }, [finalizarLectura]);
 
   const finalizarManual = () => {
     // transRef.current ahora siempre refleja el total real actualizado
     // (base de sesiones previas + confirmado de esta sesión + interim en curso)
-    finalizarLectura(transRef.current);
+    finalizarLectura(transRef.current, undefined, 'manual (botón Finalizar)');
   };
 
   useEffect(() => () => { detener(); }, []);
@@ -661,6 +683,11 @@ const ModoDemoLectura = ({ rol, onSalir }) => {
               <p style={{ color:'rgba(255,255,255,0.35)', fontSize:'0.78rem', margin:0 }}>
                 {textoSel?.titulo} · {min}:{String(seg).padStart(2,'0')} · {resultado.numeroPalabras||0} palabras
               </p>
+              {resultado._motivoFin && (
+                <p style={{ color:'#FFD54F', fontSize:'0.65rem', margin:'6px 0 0', fontFamily:'monospace' }}>
+                  🔧 diagnóstico: cierre por "{resultado._motivoFin}" · capturadas {resultado.numeroPalabras||0}/{resultado._textoRefLen||'?'} palabras del texto
+                </p>
+              )}
             </div>
 
             {/* Calificación general */}
