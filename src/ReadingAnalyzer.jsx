@@ -401,24 +401,50 @@ const ReadingAnalyzer = ({
     const sufijo = `,"resumenDidactico":{"tema":"Tema central identificado en la lectura","conceptos":["Concepto1","Concepto2","Concepto3"],"comprension":"Alta","preguntas":["¿Pregunta de comprensión 1?","¿Pregunta de comprensión 2?"],"actividad":"Actividad concreta de 5 minutos para cerrar el tema en clase"},"recomendaciones":{"libros":[{"titulo":"TÍTULO REAL de un libro existente adecuado al nivel ${nivelAlumno}/10 y al tema leído","autor":"Autor real","razon":"Por qué este libro específico ayuda a mejorar las áreas detectadas"},{"titulo":"TÍTULO REAL de segundo libro existente","autor":"Autor real","razon":"Razón específica según el resultado"}],"contenidoDigital":[{"tipo":"TikTok","descripcion":"Sugiere 1-2 cuentas reales de TikTok en español relacionadas con el tema de la lectura de hoy","plataforma":"TikTok"},{"tipo":"Artículo","descripcion":"Sugiere dónde buscar en Instagram, X o YouTube contenido breve relacionado con el tema de hoy","plataforma":"Instagram / X"}]}}`;
 
     if (modoLectura === 'guiada') {
-      return `Actúa como un experto lingüista educativo de Aura Lexi.
-Analiza esta lectura de un alumno y compárala con el texto de referencia.
+  return `Actúa como un experto lingüista educativo y evaluador pedagógico senior de Aura Lexi.
+Tu objetivo es analizar la lectura de un alumno de forma justa, empática y realista, entendiendo que las transcripciones de audio pueden tener pequeñas imprecisiones técnicas. No castigues de más al alumno por pausas naturales al respirar.
+
 IDIOMA DE ANÁLISIS: ${idiomaAnalisis}.
 TEXTO DE REFERENCIA:\n${textoReferencia}
-LECTURA DEL ALUMNO:\n${transcripcionActual}
-Evalúa (1-10): 1.Fluidez (PPM ideal: 120-150, actual: ${palabrasPorMinuto}) 2.Dicción ${modoIdioma.leer === 'en' ? '(fonética inglesa)' : '(dicción española)'} 3.Precisión 4.Pausas 5.Expresividad
-IMPORTANTE: Retroalimentación en ${idiomaAnalisis}. Los libros recomendados DEBEN ser títulos reales y existentes.
-Responde SOLO con JSON puro sin markdown:
-{"fluidez":{"puntuacion":8,"comentario":"..."},"diccion":{"puntuacion":7,"comentario":"..."},"precision":{"puntuacion":9,"comentario":"..."},"pausas":{"puntuacion":6,"comentario":"..."},"expresividad":{"puntuacion":7,"comentario":"..."},"calificacionFinal":7.4,"fortalezas":["f1","f2"],"areasAMejorar":["a1","a2"],"comentarioGeneral":"..."${sufijo}}`;
-    }
-    return `Actúa como un experto lingüista de Aura Lexi. Analiza esta lectura libre.
+LECTURA DEL ALUMNO (Transcripción):\n${transcripcionActual}
+MÉTRICA DE VELOCIDAD: PPM ideal de referencia: 120-150 (Actual del alumno: ${palabrasPorMinuto}). Valora la velocidad según la complejidad del texto.
+
+EVALÚA CADA CATEGORÍA (Escala de 1 a 10, donde 10 es excelente y 6 es un nivel aceptable/promedio esperado):
+1. Fluidez (ritmo, continuidad y adaptación al PPM).
+2. Dicción ${modoIdioma.leer === 'en' ? '(fonética y claridad en inglés)' : '(articulación y claridad en español)'}.
+3. Precisión (apego al texto de referencia, tolerando variaciones menores de transcripción).
+4. Pausas (uso adecuado de puntuación para respirar vs. titubeos excesivos).
+5. Expresividad (entonación y énfasis emocional/adecuado).
+
+REQUISITOS OBLIGATORIOS:
+- La retroalimentación y comentarios DEBEN estar redactados en ${idiomaAnalisis}.
+- Sugiere exactamente 1 o 2 libros recomendados que SEAN TÍTULOS REALES Y EXISTENTES, afines al nivel detectado.
+
+Responde ÚNICAMENTE con un objeto JSON válido, sin bloques de código markdown (sin \`\`\`json):
+{"fluidez":{"puntuacion":8,"comentario":"..."},"diccion":{"puntuacion":7,"comentario":"..."},"precision":{"puntuacion":9,"comentario":"..."},"pausas":{"puntuacion":8,"comentario":"..."},"expresividad":{"puntuacion":7,"comentario":"..."},"calificacionFinal":7.8,"fortalezas":["f1","f2"],"areasAMejorar":["a1","a2"],"comentarioGeneral":"...","librosRecomendados":[{"titulo":"...","autor":"..."}]${sufijo}}`;
+}
+
+return `Actúa como un experto lingüista y evaluador pedagógico senior de Aura Lexi.
+Analiza esta lectura libre con flexibilidad y criterio constructivo.
+
 IDIOMA DE ANÁLISIS: ${idiomaAnalisis}.
-LECTURA:\n${transcripcionActual}
-Evalúa (1-10): 1.Fluidez (PPM ideal:120-150, actual:${palabrasPorMinuto}) 2.Dicción ${modoIdioma.leer === 'en' ? '(pronunciación inglesa)' : '(claridad española)'} 3.Pausas 4.Expresividad 5.Coherencia
-IMPORTANTE: Retroalimentación en ${idiomaAnalisis}. Los libros recomendados DEBEN ser títulos reales y existentes.
-Responde SOLO con JSON puro sin markdown:
-{"fluidez":{"puntuacion":8,"comentario":"..."},"diccion":{"puntuacion":7,"comentario":"..."},"pausas":{"puntuacion":6,"comentario":"..."},"expresividad":{"puntuacion":7,"comentario":"..."},"coherencia":{"puntuacion":8,"comentario":"..."},"calificacionFinal":7.2,"fortalezas":["f1","f2"],"areasAMejorar":["a1","a2"],"comentarioGeneral":"..."${sufijo}}`;
-  };
+LECTURA DEL ALUMNO:\n${transcripcionActual}
+MÉTRICA DE VELOCIDAD: PPM ideal: 120-150 (Actual: ${palabrasPorMinuto}).
+
+EVALÚA CADA CATEGORÍA (Escala de 1 a 10):
+1. Fluidez (ritmo general y soltura).
+2. Dicción ${modoIdioma.leer === 'en' ? '(pronunciación inglesa)' : '(claridad española)'}.
+3. Pausas (fluidez del discurso sin bloqueos prolongados).
+4. Expressividad (dinámica de voz).
+5. Coherencia (sentido y estructura lógica de lo expresado).
+
+REQUISITOS OBLIGATORIOS:
+- Retroalimentación en ${idiomaAnalisis}.
+- Los libros recomendados DEBEN ser títulos reales y existentes.
+
+Responde ÚNICAMENTE con un objeto JSON válido, sin bloques de código markdown (sin \`\`\`json):
+{"fluidez":{"puntuacion":8,"comentario":"..."},"diccion":{"puntuacion":7,"comentario":"..."},"pausas":{"puntuacion":6,"comentario":"..."},"expresividad":{"puntuacion":7,"comentario":"..."},"coherencia":{"puntuacion":8,"comentario":"..."},"calificacionFinal":7.2,"fortalezas":["f1","f2"],"areasAMejorar":["a1","a2"],"comentarioGeneral":"...","librosRecomendados":[{"titulo":"...","autor":"..."}]${sufijo}}`;
+};
 
   const analizarLectura = async (transcripcionActual, tiempoSegundos) => {
     if (!transcripcionActual || transcripcionActual.trim().length < 5) {
