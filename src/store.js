@@ -7,7 +7,7 @@ import { db } from './firebase';
 import {
   collection, getDocs, query, where,
   doc, updateDoc, increment, writeBatch,
-  getDoc, setDoc,
+  getDoc, setDoc, addDoc, deleteDoc,
 } from 'firebase/firestore';
 
 // ─────────────────────────────────────────────────────────────
@@ -170,6 +170,54 @@ export const useAuraStore = create(
         } catch (e) {
           console.error('Error cargando alumnos:', e);
           set({ cargandoAlumnos: false }, false, 'cargarAlumnos/error');
+        }
+      },
+
+      // ── Agregar alumno nuevo ──────────────────────────────
+      // Escribe con el MISMO esquema de campos que ya usan Gamificación
+      // y Sensor de movimiento (escuelaId, escuelaNombre, grupo, nombre)
+      // para que el alumno aparezca correctamente en los 3 proyectos.
+      agregarAlumno: async (nombre) => {
+        const { escuelaSeleccionada, grupoSeleccionado, cargarAlumnos } = get();
+        const nombreLimpio = (nombre || '').trim();
+        if (!nombreLimpio) return { ok: false, error: 'Escribe un nombre.' };
+        if (!escuelaSeleccionada || !grupoSeleccionado) {
+          return { ok: false, error: 'Selecciona escuela y grupo primero.' };
+        }
+        try {
+          await addDoc(collection(db, 'alumnos'), {
+            nombre:         nombreLimpio,
+            escuelaId:      escuelaSeleccionada.id,
+            escuelaNombre:  escuelaSeleccionada.nombre,
+            grupo:          grupoSeleccionado,
+            puntosClase:    0,
+            puntos:         0,
+            racha:          0,
+            fechaCreacion:  new Date().toISOString(),
+          });
+          await cargarAlumnos();
+          return { ok: true };
+        } catch (e) {
+          console.error('Error agregando alumno:', e);
+          return { ok: false, error: 'Error de conexión al agregar alumno.' };
+        }
+      },
+
+      // ── Eliminar alumno ───────────────────────────────────
+      eliminarAlumno: async (alumnoId) => {
+        const { cargarAlumnos } = get();
+        try {
+          await deleteDoc(doc(db, 'alumnos', alumnoId));
+          set(
+            (s) => ({ alumnos: s.alumnos.filter(a => a.id !== alumnoId) }),
+            false,
+            'eliminarAlumno/optimista',
+          );
+          await cargarAlumnos();
+          return { ok: true };
+        } catch (e) {
+          console.error('Error eliminando alumno:', e);
+          return { ok: false, error: 'Error de conexión al eliminar alumno.' };
         }
       },
 
