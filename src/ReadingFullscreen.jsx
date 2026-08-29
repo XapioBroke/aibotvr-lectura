@@ -391,6 +391,18 @@ TEXTO: ${texto}`
     setTimeout(() => onDetener(transcripcionRef.current, tiempoRef.current), 400);
   };
 
+  // ── Detener SIN analizar ────────────────────────────────
+  // Apaga el micrófono pero NO dispara el análisis ni cierra la pantalla.
+  // El texto (y su traducción) se quedan visibles para que el docente pueda
+  // señalar algo puntual y dar retroalimentación en vivo — útil sobre todo
+  // en pantallas de traducción/inglés, donde el objetivo a veces es la
+  // conversación, no la calificación.
+  const handleDetenerSinAnalizar = () => {
+    setEstadoMic('pausado-sin-analizar');
+    if (timerRef.current) clearInterval(timerRef.current);
+    try { recognitionRef.current?.stop(); } catch (_) {}
+  };
+
   // ── Badge modo ──
   const modoBadge = conTraduccion
     ? `${FLAG[modoIdioma.leer]} → ${FLAG[modoIdioma.traducir]}`
@@ -711,17 +723,71 @@ TEXTO: ${texto}`
           ))}
         </div>
 
-        <button
-          className={`rfs-btn-detener ${estadoMic === 'deteniendo' ? 'loading' : ''}`}
-          onClick={handleDetener}
-          disabled={estadoMic !== 'grabando'}
-        >
-          {estadoMic === 'deteniendo' ? (
-            <><div className="rfs-btn-spinner" /> ANALIZANDO...</>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+          {estadoMic !== 'pausado-sin-analizar' ? (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <button
+                className={`rfs-btn-detener ${estadoMic === 'deteniendo' ? 'loading' : ''}`}
+                onClick={handleDetener}
+                disabled={estadoMic !== 'grabando'}
+              >
+                {estadoMic === 'deteniendo' ? (
+                  <><div className="rfs-btn-spinner" /> ANALIZANDO...</>
+                ) : (
+                  <><span>⏹</span> DETENER Y ANALIZAR</>
+                )}
+              </button>
+
+              <button
+                onClick={handleDetenerSinAnalizar}
+                disabled={estadoMic !== 'grabando'}
+                title="Apaga el micrófono sin generar un análisis — el texto se queda en pantalla para dar retroalimentación"
+                style={{
+                  background:   'rgba(255,193,7,0.12)',
+                  border:       '2px solid rgba(255,193,7,0.4)',
+                  borderRadius: 14,
+                  padding:      '14px 22px',
+                  cursor:       estadoMic === 'grabando' ? 'pointer' : 'not-allowed',
+                  color:        '#FFD54F',
+                  fontSize:     13,
+                  fontWeight:   700,
+                  opacity:      estadoMic === 'grabando' ? 1 : 0.5,
+                  whiteSpace:   'nowrap',
+                }}
+              >
+                ⏸ DETENER SIN ANALIZAR
+              </button>
+            </div>
           ) : (
-            <><span>⏹</span> DETENER Y ANALIZAR</>
+            /* ── Panel de seguimiento tras pausar sin analizar ── */
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+              background: 'rgba(255,193,7,0.08)', border: '1px solid rgba(255,193,7,0.3)',
+              borderRadius: 14, padding: '14px 22px',
+            }}>
+              <p style={{ margin: 0, color: '#FFD54F', fontSize: 13, fontWeight: 600, textAlign: 'center' }}>
+                ⏸ Grabación detenida — nada se registró todavía. El texto se queda en pantalla para retroalimentación.
+              </p>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                <button
+                  onClick={() => onDetener(transcripcionRef.current, tiempoRef.current)}
+                  style={{ background: '#00e676', border: 'none', borderRadius: 10, padding: '10px 18px', color: '#000', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                >
+                  ✅ Analizar esta lectura
+                </button>
+                <button
+                  onClick={onCancelar}
+                  style={{ background: 'rgba(255,69,58,0.15)', border: '1px solid rgba(255,69,58,0.4)', borderRadius: 10, padding: '10px 18px', color: '#ff453a', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                >
+                  ✕ Cerrar sin guardar
+                </button>
+              </div>
+              <p style={{ margin: 0, color: 'rgba(255,255,255,0.35)', fontSize: 10, textAlign: 'center' }}>
+                Para seguir leyendo con el mismo alumno, cierra y vuelve a iniciar la grabación.
+              </p>
+            </div>
           )}
-        </button>
+        </div>
 
         <div className="rfs-waveform rfs-waveform--flip">
           {Array.from({ length: 32 }).map((_, i) => (
