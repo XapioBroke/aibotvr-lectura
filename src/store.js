@@ -339,6 +339,40 @@ export const useAuraStore = create(
         }
       },
 
+      // ── Agregar alumnos MASIVO (pegar lista o subir archivo) ──
+      // Usa writeBatch: un solo viaje a Firestore en vez de N escrituras
+      // sueltas, y un solo cargarAlumnos() al final en vez de uno por alumno.
+      agregarAlumnosMasivo: async (nombres) => {
+        const { escuelaSeleccionada, grupoSeleccionado, cargarAlumnos } = get();
+        if (!escuelaSeleccionada || !grupoSeleccionado) {
+          return { ok: false, error: 'Selecciona escuela y grupo primero.' };
+        }
+        const limpios = (nombres || []).map(n => (n || '').trim()).filter(Boolean);
+        if (!limpios.length) return { ok: false, error: 'No se detectaron nombres válidos.' };
+        try {
+          const batch = writeBatch(db);
+          limpios.forEach(nombre => {
+            const ref = doc(collection(db, 'alumnos'));
+            batch.set(ref, {
+              nombre,
+              escuelaId:      escuelaSeleccionada.id,
+              escuelaNombre:  escuelaSeleccionada.nombre,
+              grupo:          grupoSeleccionado,
+              puntosClase:    0,
+              puntos:         0,
+              racha:          0,
+              fechaCreacion:  new Date().toISOString(),
+            });
+          });
+          await batch.commit();
+          await cargarAlumnos();
+          return { ok: true, agregados: limpios.length };
+        } catch (e) {
+          console.error('Error agregando alumnos masivo:', e);
+          return { ok: false, error: 'Error de conexión al agregar alumnos.' };
+        }
+      },
+
       // ── Eliminar alumno ───────────────────────────────────
       eliminarAlumno: async (alumnoId) => {
         const { cargarAlumnos } = get();
