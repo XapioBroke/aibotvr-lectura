@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAuraStore, ESCUELAS, MODOS_IDIOMA } from './store';
+import { useAuraStore, MODOS_IDIOMA } from './store';
 import ReadingAnalyzer from './ReadingAnalyzer';
 import Estadisticas from './Estadisticas';
 import IntroCinematica from './IntroCinematica';
@@ -83,6 +83,8 @@ function App() {
   // ── Leer estado del store (granular = renders óptimos) ──
   const mostrarIntro        = useAuraStore(s => s.mostrarIntro);
   const vista               = useAuraStore(s => s.vista);
+  const escuelas            = useAuraStore(s => s.escuelas);
+  const cargandoEscuelas    = useAuraStore(s => s.cargandoEscuelas);
   const escuelaSeleccionada = useAuraStore(s => s.escuelaSeleccionada);
   const grupoSeleccionado   = useAuraStore(s => s.grupoSeleccionado);
   const alumnoSeleccionado  = useAuraStore(s => s.alumnoSeleccionado);
@@ -106,6 +108,13 @@ function App() {
   const cargarAlumnos         = useAuraStore(s => s.cargarAlumnos);
   const agregarAlumno         = useAuraStore(s => s.agregarAlumno);
   const eliminarAlumno        = useAuraStore(s => s.eliminarAlumno);
+  const cargarEscuelas        = useAuraStore(s => s.cargarEscuelas);
+  const agregarEscuela        = useAuraStore(s => s.agregarEscuela);
+  const eliminarEscuela       = useAuraStore(s => s.eliminarEscuela);
+  const renombrarEscuela      = useAuraStore(s => s.renombrarEscuela);
+  const agregarGrupo          = useAuraStore(s => s.agregarGrupo);
+  const eliminarGrupo         = useAuraStore(s => s.eliminarGrupo);
+  const renombrarGrupo        = useAuraStore(s => s.renombrarGrupo);
   const toggleModoEdicion     = useAuraStore(s => s.toggleModoEdicion);
   const ajustarPuntosManuales = useAuraStore(s => s.ajustarPuntosManuales);
   const deshacerUltimaAccion  = useAuraStore(s => s.deshacerUltimaAccion);
@@ -121,11 +130,56 @@ function App() {
   const [mostrarCierre, setMostrarCierre] = React.useState(false);
   const [nuevoAlumnoNombre, setNuevoAlumnoNombre] = React.useState('');
   const [agregandoAlumno, setAgregandoAlumno]     = React.useState(false);
+  const [mostrarAdminEscuelas, setMostrarAdminEscuelas] = React.useState(false);
+  const [nuevaEscuelaNombre, setNuevaEscuelaNombre]     = React.useState('');
+
+  // ── Cargar escuelas al montar (migra automáticamente si la colección está vacía) ──
+  useEffect(() => { cargarEscuelas(); }, []);
 
   // ── Cargar alumnos automáticamente cuando cambia grupo/escuela ──
   useEffect(() => {
     if (escuelaSeleccionada && grupoSeleccionado) cargarAlumnos();
   }, [escuelaSeleccionada, grupoSeleccionado]);
+
+  const handleAgregarEscuela = async () => {
+    if (!nuevaEscuelaNombre.trim()) return;
+    const resultado = await agregarEscuela(nuevaEscuelaNombre);
+    if (resultado.ok) setNuevaEscuelaNombre('');
+    else alert(resultado.error || 'No se pudo agregar la escuela.');
+  };
+
+  const handleEliminarEscuela = async (escuela) => {
+    if (!window.confirm(`¿Eliminar "${escuela.nombre}"? Los alumnos de esta escuela no se borran.`)) return;
+    const resultado = await eliminarEscuela(escuela.id);
+    if (!resultado.ok) alert(resultado.error || 'No se pudo eliminar la escuela.');
+  };
+
+  const handleRenombrarEscuela = async (escuela) => {
+    const nuevo = prompt('Nuevo nombre de la escuela:', escuela.nombre);
+    if (!nuevo || nuevo.trim() === escuela.nombre) return;
+    const resultado = await renombrarEscuela(escuela.id, nuevo);
+    if (!resultado.ok) alert(resultado.error || 'No se pudo renombrar.');
+  };
+
+  const handleAgregarGrupo = async (escuela) => {
+    const nuevo = prompt('Nombre del nuevo grupo (ej: 3A):');
+    if (!nuevo) return;
+    const resultado = await agregarGrupo(escuela.id, escuela.grupos || [], nuevo);
+    if (!resultado.ok) alert(resultado.error || 'No se pudo agregar el grupo (¿ya existe?).');
+  };
+
+  const handleEliminarGrupo = async (escuela, grupo) => {
+    if (!window.confirm(`¿Eliminar el grupo "${grupo}"? Los alumnos de este grupo no se borran.`)) return;
+    const resultado = await eliminarGrupo(escuela.id, escuela.grupos || [], grupo);
+    if (!resultado.ok) alert(resultado.error || 'No se pudo eliminar el grupo.');
+  };
+
+  const handleRenombrarGrupo = async (escuela, grupo) => {
+    const nuevo = prompt('Nuevo nombre del grupo:', grupo);
+    if (!nuevo || nuevo.trim() === grupo) return;
+    const resultado = await renombrarGrupo(escuela.id, escuela.grupos || [], grupo, nuevo);
+    if (!resultado.ok) alert(resultado.error || 'No se pudo renombrar el grupo.');
+  };
 
   const handleAgregarAlumno = async () => {
     if (!nuevoAlumnoNombre.trim()) return;
@@ -228,13 +282,95 @@ function App() {
           {(vista === 'seleccion' || vista === 'estadisticas') && !escuelaSeleccionada && (
             <motion.div key="sel-escuela" variants={pageVariants} initial="initial" animate="in" exit="out" className="ios-page">
               <IosHeader titulo="Escuelas" onBack={() => irAVista('menu')} />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+                <button
+                  onClick={() => setMostrarAdminEscuelas(!mostrarAdminEscuelas)}
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 20, padding: '6px 14px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
+                >
+                  {mostrarAdminEscuelas ? '❌ Cerrar' : '🏫 Administrar Escuelas'}
+                </button>
+              </div>
+
+              {/* ── PANEL ADMIN ESCUELAS ── */}
+              <AnimatePresence>
+                {mostrarAdminEscuelas && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                    style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 12, padding: '1rem', marginBottom: '1rem', overflow: 'hidden' }}
+                  >
+                    <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                      <input
+                        type="text"
+                        placeholder="Nombre de la nueva escuela"
+                        value={nuevaEscuelaNombre}
+                        onChange={(e) => setNuevaEscuelaNombre(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAgregarEscuela()}
+                        style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: 14 }}
+                      />
+                      <button
+                        onClick={handleAgregarEscuela}
+                        style={{ padding: '0.5rem 1rem', background: '#4CAF50', color: '#000', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, whiteSpace: 'nowrap' }}
+                      >
+                        ➕ Nueva Escuela
+                      </button>
+                    </div>
+
+                    {escuelas.map(escuela => (
+                      <div key={escuela.id} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '1rem', marginBottom: '0.8rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                          <span style={{ color: 'white', fontWeight: 600, fontSize: '1rem' }}>{escuela.nombre}</span>
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <button onClick={() => handleRenombrarEscuela(escuela)}
+                              style={{ padding: '0.3rem 0.7rem', background: '#2196F3', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
+                              ✏️ Renombrar
+                            </button>
+                            <button onClick={() => handleAgregarGrupo(escuela)}
+                              style={{ padding: '0.3rem 0.7rem', background: '#4CAF50', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
+                              ➕ Grupo
+                            </button>
+                            <button onClick={() => handleEliminarEscuela(escuela)}
+                              style={{ padding: '0.3rem 0.7rem', background: '#f44336', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
+                          {(escuela.grupos || []).map(grupo => (
+                            <div key={grupo} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(255,255,255,0.1)', borderRadius: 20, padding: '0.2rem 0.6rem' }}>
+                              <span style={{ color: 'white', fontSize: '0.85rem' }}>{grupo}</span>
+                              <button onClick={() => handleRenombrarGrupo(escuela, grupo)}
+                                style={{ background: 'none', border: 'none', color: '#90CAF9', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}>
+                                ✏️
+                              </button>
+                              <button onClick={() => handleEliminarGrupo(escuela, grupo)}
+                                style={{ background: 'none', border: 'none', color: '#EF9A9A', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}>
+                                ✕
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div className="ios-list-container">
-                {ESCUELAS.map(e => (
-                  <button key={e.id} className="ios-list-item" onClick={() => seleccionarEscuela(e)}>
-                    <div className="item-content"><h3>{e.nombre}</h3></div>
-                    <span className="chevron-right">›</span>
-                  </button>
-                ))}
+                {cargandoEscuelas ? (
+                  <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>Cargando escuelas...</p>
+                ) : escuelas.length === 0 ? (
+                  <p style={{ color: 'rgba(255,255,255,0.4)', textAlign: 'center', padding: '2rem' }}>
+                    No hay escuelas registradas. Usa "🏫 Administrar Escuelas" para crear la primera.
+                  </p>
+                ) : (
+                  escuelas.map(e => (
+                    <button key={e.id} className="ios-list-item" onClick={() => seleccionarEscuela(e)}>
+                      <div className="item-content"><h3>{e.nombre}</h3></div>
+                      <span className="chevron-right">›</span>
+                    </button>
+                  ))
+                )}
               </div>
             </motion.div>
           )}
