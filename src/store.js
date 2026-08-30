@@ -25,6 +25,14 @@ const ESCUELAS_INICIALES = [
   { id: '5', nombre: 'Secundaria Foránea 8',   grupos: ['1C','2D','3C'] },
 ];
 
+// Export de RESPALDO — mantiene compatibilidad con cualquier archivo que
+// todavía importe `ESCUELAS` de forma estática (por ejemplo, si hay otro
+// componente del proyecto que no hemos migrado en esta ronda). El dato
+// real y editable ahora vive en Firestore vía el estado `escuelas` del
+// store y las acciones cargarEscuelas/agregarEscuela/etc. — este export
+// es solo un respaldo de lectura, ya NO se actualiza en vivo.
+export const ESCUELAS = ESCUELAS_INICIALES;
+
 export const MODOS_IDIOMA = [
   { leer: 'es', traducir: 'es', label: '🇲🇽 / 🇲🇽', titulo: 'ES / ES', desc: 'Solo español'    },
   { leer: 'es', traducir: 'en', label: '🇲🇽 → 🇺🇸', titulo: 'ES → EN', desc: 'Español + inglés' },
