@@ -5,6 +5,7 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuraStore, MODOS_IDIOMA } from './store';
+import * as XLSX from 'xlsx';
 import ReadingAnalyzer from './ReadingAnalyzer';
 import Estadisticas from './Estadisticas';
 import IntroCinematica from './IntroCinematica';
@@ -107,6 +108,7 @@ function App() {
   const limpiarEscuela        = useAuraStore(s => s.limpiarEscuela);
   const cargarAlumnos         = useAuraStore(s => s.cargarAlumnos);
   const agregarAlumno         = useAuraStore(s => s.agregarAlumno);
+  const agregarAlumnosMasivo  = useAuraStore(s => s.agregarAlumnosMasivo);
   const eliminarAlumno        = useAuraStore(s => s.eliminarAlumno);
   const cargarEscuelas        = useAuraStore(s => s.cargarEscuelas);
   const agregarEscuela        = useAuraStore(s => s.agregarEscuela);
@@ -130,6 +132,10 @@ function App() {
   const [mostrarCierre, setMostrarCierre] = React.useState(false);
   const [nuevoAlumnoNombre, setNuevoAlumnoNombre] = React.useState('');
   const [agregandoAlumno, setAgregandoAlumno]     = React.useState(false);
+  const [metodoAgregar, setMetodoAgregar]         = React.useState('individual'); // individual | pegar | archivo
+  const [textoMasivoAlumnos, setTextoMasivoAlumnos] = React.useState('');
+  const [agregandoMasivo, setAgregandoMasivo]       = React.useState(false);
+  const [cargandoArchivoAlumnos, setCargandoArchivoAlumnos] = React.useState(false);
   const [mostrarAdminEscuelas, setMostrarAdminEscuelas] = React.useState(false);
   const [nuevaEscuelaNombre, setNuevaEscuelaNombre]     = React.useState('');
 
@@ -197,6 +203,67 @@ function App() {
     if (!window.confirm(`¿Eliminar a ${alumno.nombre}? Esta acción no se puede deshacer.`)) return;
     const resultado = await eliminarAlumno(alumno.id);
     if (!resultado.ok) alert(resultado.error || 'No se pudo eliminar el alumno.');
+  };
+
+  const handleAgregarMasivo = async () => {
+    const nombres = textoMasivoAlumnos.split('\n').map(n => n.trim()).filter(Boolean);
+    if (!nombres.length) { alert('Pega al menos un nombre.'); return; }
+    setAgregandoMasivo(true);
+    const resultado = await agregarAlumnosMasivo(nombres);
+    setAgregandoMasivo(false);
+    if (resultado.ok) {
+      setTextoMasivoAlumnos('');
+      alert(`¡${resultado.agregados} alumnos agregados!`);
+    } else {
+      alert(resultado.error || 'No se pudieron agregar los alumnos.');
+    }
+  };
+
+  // Extrae nombres desde .txt/.csv (texto plano) o .xlsx/.xls (primera
+  // columna de la primera hoja). Word y PDF no están soportados todavía
+  // — necesitarían agregar dependencias nuevas (mammoth / pdfjs-dist).
+  const procesarArchivoAlumnos = async (event) => {
+    const archivo = event.target.files[0];
+    if (!archivo) return;
+    setCargandoArchivoAlumnos(true);
+    try {
+      const ext = archivo.name.split('.').pop().toLowerCase();
+      let nombres = [];
+
+      if (ext === 'xlsx' || ext === 'xls') {
+        const buffer = await archivo.arrayBuffer();
+        const wb    = XLSX.read(buffer, { type: 'array' });
+        const hoja  = wb.Sheets[wb.SheetNames[0]];
+        const filas = XLSX.utils.sheet_to_json(hoja, { header: 1 }); // array de arrays
+        nombres = filas
+          .map(fila => (fila?.[0] ?? '').toString().trim())
+          .filter(Boolean)
+          // descarta encabezados típicos como "Nombre", "Alumno", etc.
+          .filter(n => !/^(nombre|alumnos?|estudiantes?)$/i.test(n));
+      } else if (ext === 'txt' || ext === 'csv') {
+        const texto = await archivo.text();
+        nombres = texto.split('\n').map(n => n.trim()).filter(Boolean);
+      } else {
+        alert('Formato no soportado todavía. Usa .txt, .csv, .xlsx o .xls (Word y PDF están pendientes).');
+        setCargandoArchivoAlumnos(false);
+        event.target.value = '';
+        return;
+      }
+
+      if (!nombres.length) {
+        alert('No se encontraron nombres en el archivo.');
+      } else {
+        const resultado = await agregarAlumnosMasivo(nombres);
+        if (resultado.ok) alert(`¡${resultado.agregados} alumnos agregados!`);
+        else alert(resultado.error || 'No se pudieron agregar los alumnos.');
+      }
+    } catch (e) {
+      console.error('Error procesando archivo:', e);
+      alert('Error al procesar el archivo. Verifica que el formato sea correcto.');
+    } finally {
+      setCargandoArchivoAlumnos(false);
+      event.target.value = '';
+    }
   };
 
   // ── Intro ──
@@ -425,29 +492,104 @@ function App() {
                 </AnimatePresence>
               </div>
 
-              {/* Agregar alumno — visible en modo edición, mismo patrón que Gamificación */}
+              {/* Agregar alumnos — visible en modo edición: individual, pegar lista, o archivo */}
               <AnimatePresence>
                 {modoEdicion && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                     className="teacher-controls ios-glass"
-                    style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}
+                    style={{ marginTop: 8, overflow: 'hidden' }}
                   >
-                    <input
-                      type="text"
-                      placeholder="Nombre del nuevo alumno"
-                      value={nuevoAlumnoNombre}
-                      onChange={(e) => setNuevoAlumnoNombre(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAgregarAlumno()}
-                      style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: 14 }}
-                    />
-                    <button
-                      onClick={handleAgregarAlumno}
-                      disabled={agregandoAlumno || !nuevoAlumnoNombre.trim()}
-                      style={{ background: '#4CAF50', color: '#000', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: agregandoAlumno ? 0.6 : 1, whiteSpace: 'nowrap' }}
-                    >
-                      {agregandoAlumno ? '⏳...' : '➕ Agregar'}
-                    </button>
+                    {/* Pestañas de método */}
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                      {[
+                        { id: 'individual', label: '📝 Uno por uno' },
+                        { id: 'pegar',      label: '📋 Pegar lista' },
+                        { id: 'archivo',    label: '📄 Subir archivo' },
+                      ].map(m => (
+                        <button
+                          key={m.id}
+                          onClick={() => setMetodoAgregar(m.id)}
+                          style={{
+                            padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                            border: `1px solid ${metodoAgregar === m.id ? '#4CAF50' : 'rgba(255,255,255,0.15)'}`,
+                            background: metodoAgregar === m.id ? 'rgba(76,175,80,0.18)' : 'transparent',
+                            color: metodoAgregar === m.id ? '#4CAF50' : 'rgba(255,255,255,0.5)',
+                          }}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Individual */}
+                    {metodoAgregar === 'individual' && (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          placeholder="Nombre del nuevo alumno"
+                          value={nuevoAlumnoNombre}
+                          onChange={(e) => setNuevoAlumnoNombre(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAgregarAlumno()}
+                          style={{ flex: 1, padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: 14 }}
+                        />
+                        <button
+                          onClick={handleAgregarAlumno}
+                          disabled={agregandoAlumno || !nuevoAlumnoNombre.trim()}
+                          style={{ background: '#4CAF50', color: '#000', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: agregandoAlumno ? 0.6 : 1, whiteSpace: 'nowrap' }}
+                        >
+                          {agregandoAlumno ? '⏳...' : '➕ Agregar'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Pegar lista */}
+                    {metodoAgregar === 'pegar' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                          Pega varios nombres (uno por línea) y agrégalos todos juntos.
+                        </p>
+                        <textarea
+                          placeholder={'Juan Pérez\nMaría García\nCarlos López'}
+                          value={textoMasivoAlumnos}
+                          onChange={(e) => setTextoMasivoAlumnos(e.target.value)}
+                          rows={5}
+                          style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: 14, resize: 'vertical', fontFamily: 'inherit' }}
+                        />
+                        <button
+                          onClick={handleAgregarMasivo}
+                          disabled={agregandoMasivo || !textoMasivoAlumnos.trim()}
+                          style={{ background: '#4CAF50', color: '#000', border: 'none', borderRadius: 10, padding: '10px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: agregandoMasivo ? 0.6 : 1, alignSelf: 'flex-start' }}
+                        >
+                          {agregandoMasivo ? '⏳ Agregando...' : '➕ Agregar todos'}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Subir archivo */}
+                    {metodoAgregar === 'archivo' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <p style={{ margin: 0, color: 'rgba(255,255,255,0.4)', fontSize: 12, lineHeight: 1.5 }}>
+                          Soportado hoy: <strong>.txt</strong>, <strong>.csv</strong>, <strong>.xlsx</strong>, <strong>.xls</strong> (nombres en la primera columna).<br />
+                          Word (.docx) y PDF todavía no están soportados.
+                        </p>
+                        <label style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                          padding: '10px 18px', borderRadius: 10, background: 'rgba(33,150,243,0.15)',
+                          border: '1px solid rgba(33,150,243,0.4)', color: '#2196F3', fontWeight: 600,
+                          fontSize: 13, cursor: 'pointer', alignSelf: 'flex-start',
+                        }}>
+                          {cargandoArchivoAlumnos ? '⏳ Procesando...' : '📁 Seleccionar archivo'}
+                          <input
+                            type="file"
+                            accept=".txt,.csv,.xlsx,.xls"
+                            onChange={procesarArchivoAlumnos}
+                            disabled={cargandoArchivoAlumnos}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
