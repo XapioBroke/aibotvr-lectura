@@ -11,14 +11,18 @@ import {
 } from 'firebase/firestore';
 
 // ─────────────────────────────────────────────────────────────
-// CONSTANTES
-// ─────────────────────────────────────────────────────────────
-export const ESCUELAS = [
-  { id: 1, nombre: 'Secundaria Técnica 90',  grupos: ['2A','2B','2C','2D','1D'] },
-  { id: 2, nombre: 'Secundaria Técnica 131', grupos: ['1A','1B'] },
-  { id: 3, nombre: 'Secundaria Técnica 164', grupos: ['1A','1B'] },
-  { id: 4, nombre: 'Secundaria Foránea 17',  grupos: ['2B','2C'] },
-  { id: 5, nombre: 'Secundaria Foránea 8',   grupos: ['1C','2D','3C'] },
+// ESCUELAS — antes vivían fijas en este arreglo (requería tocar
+// código y desplegar para agregar una escuela o grupo). Ahora se
+// migran a Firestore (colección 'escuelas') la primera vez que se
+// cargan, con los MISMOS ids/nombres/grupos que ya usa Gamificación
+// para esa misma colección — así ambos proyectos quedan consistentes
+// sin importar cuál corra la migración primero.
+const ESCUELAS_INICIALES = [
+  { id: '1', nombre: 'Secundaria Técnica 90',  grupos: ['2A','2B','2C','2D','1D'] },
+  { id: '2', nombre: 'Secundaria Técnica 131', grupos: ['1A','1B'] },
+  { id: '3', nombre: 'Secundaria Técnica 164', grupos: ['1A','1B'] },
+  { id: '4', nombre: 'Secundaria Foránea 17',  grupos: ['2B','2C'] },
+  { id: '5', nombre: 'Secundaria Foránea 8',   grupos: ['1C','2D','3C'] },
 ];
 
 export const MODOS_IDIOMA = [
@@ -64,6 +68,10 @@ export const useAuraStore = create(
       // ── UI / Navegación ──────────────────────────────────
       mostrarIntro:        true,
       vista:               'menu',
+
+      // ── Escuelas (ahora dinámicas desde Firestore) ───────
+      escuelas:            [],
+      cargandoEscuelas:    false,
 
       // ── Selección jerárquica ─────────────────────────────
       escuelaSeleccionada: null,
@@ -145,6 +153,126 @@ export const useAuraStore = create(
           false,
           'limpiarEscuela',
         ),
+
+      // ── Escuelas — Firebase ───────────────────────────────
+      cargarEscuelas: async () => {
+        set({ cargandoEscuelas: true }, false, 'cargarEscuelas/start');
+        try {
+          const snap = await getDocs(collection(db, 'escuelas'));
+          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          if (data.length === 0) {
+            // Primera vez que corre esta migración en el proyecto — puede que
+            // Gamificación ya la haya corrido antes; si no, la sembramos aquí.
+            await get().migrarEscuelasIniciales();
+          } else {
+            set(
+              { escuelas: data.sort((a, b) => a.nombre.localeCompare(b.nombre)), cargandoEscuelas: false },
+              false,
+              'cargarEscuelas/done',
+            );
+          }
+        } catch (e) {
+          console.error('Error cargando escuelas:', e);
+          set({ cargandoEscuelas: false }, false, 'cargarEscuelas/error');
+        }
+      },
+
+      migrarEscuelasIniciales: async () => {
+        try {
+          for (const escuela of ESCUELAS_INICIALES) {
+            await setDoc(
+              doc(db, 'escuelas', escuela.id),
+              { nombre: escuela.nombre, grupos: escuela.grupos },
+              { merge: true },
+            );
+          }
+        } catch (e) {
+          console.error('Error migrando escuelas:', e);
+        }
+        await get().cargarEscuelas();
+      },
+
+      agregarEscuela: async (nombre) => {
+        const nombreLimpio = (nombre || '').trim();
+        if (!nombreLimpio) return { ok: false, error: 'Escribe un nombre.' };
+        try {
+          await addDoc(collection(db, 'escuelas'), { nombre: nombreLimpio, grupos: [] });
+          await get().cargarEscuelas();
+          return { ok: true };
+        } catch (e) {
+          console.error('Error agregando escuela:', e);
+          return { ok: false, error: 'Error de conexión al agregar escuela.' };
+        }
+      },
+
+      eliminarEscuela: async (escuelaId) => {
+        try {
+          await deleteDoc(doc(db, 'escuelas', escuelaId));
+          await get().cargarEscuelas();
+          return { ok: true };
+        } catch (e) {
+          console.error('Error eliminando escuela:', e);
+          return { ok: false, error: 'Error al eliminar escuela.' };
+        }
+      },
+
+      renombrarEscuela: async (escuelaId, nuevoNombre) => {
+        const limpio = (nuevoNombre || '').trim();
+        if (!limpio) return { ok: false };
+        try {
+          await updateDoc(doc(db, 'escuelas', escuelaId), { nombre: limpio });
+          await get().cargarEscuelas();
+          return { ok: true };
+        } catch (e) {
+          console.error('Error renombrando escuela:', e);
+          return { ok: false, error: 'Error al renombrar escuela.' };
+        }
+      },
+
+      agregarGrupo: async (escuelaId, gruposActuales, nuevoGrupo) => {
+        const limpio = (nuevoGrupo || '').trim().toUpperCase();
+        if (!limpio || gruposActuales.includes(limpio)) return { ok: false };
+        try {
+          await updateDoc(doc(db, 'escuelas', escuelaId), { grupos: [...gruposActuales, limpio] });
+          await get().cargarEscuelas();
+          return { ok: true };
+        } catch (e) {
+          console.error('Error agregando grupo:', e);
+          return { ok: false, error: 'Error al agregar grupo.' };
+        }
+      },
+
+      eliminarGrupo: async (escuelaId, gruposActuales, grupo) => {
+        try {
+          await updateDoc(doc(db, 'escuelas', escuelaId), { grupos: gruposActuales.filter(g => g !== grupo) });
+          await get().cargarEscuelas();
+          return { ok: true };
+        } catch (e) {
+          console.error('Error eliminando grupo:', e);
+          return { ok: false, error: 'Error al eliminar grupo.' };
+        }
+      },
+
+      renombrarGrupo: async (escuelaId, gruposActuales, grupoActual, nuevoGrupo) => {
+        const limpio = (nuevoGrupo || '').trim().toUpperCase();
+        if (!limpio) return { ok: false };
+        try {
+          await updateDoc(doc(db, 'escuelas', escuelaId), {
+            grupos: gruposActuales.map(g => g === grupoActual ? limpio : g),
+          });
+          await get().cargarEscuelas();
+          // Si el grupo renombrado es el que está seleccionado en este momento,
+          // actualizar la selección para que no quede apuntando a un nombre viejo.
+          const { escuelaSeleccionada, grupoSeleccionado } = get();
+          if (escuelaSeleccionada?.id === escuelaId && grupoSeleccionado === grupoActual) {
+            set({ grupoSeleccionado: limpio }, false, 'renombrarGrupo/syncSeleccion');
+          }
+          return { ok: true };
+        } catch (e) {
+          console.error('Error renombrando grupo:', e);
+          return { ok: false, error: 'Error al renombrar grupo.' };
+        }
+      },
 
       // ── Alumnos — Firebase ────────────────────────────────
       cargarAlumnos: async () => {
