@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import {
   collection, getDocs, query, where,
   doc, updateDoc, increment, writeBatch,
@@ -165,20 +165,50 @@ export const useAuraStore = create(
       // ── Escuelas — Firebase ───────────────────────────────
       cargarEscuelas: async () => {
         set({ cargandoEscuelas: true }, false, 'cargarEscuelas/start');
+        const uid   = auth.currentUser?.uid;
+        const email = auth.currentUser?.email?.toLowerCase();
+        if (!uid) {
+          // Sin sesión no hay nada que mostrar — evita fugas de datos si
+          // este código se ejecuta antes de que Firebase Auth resuelva.
+          set({ escuelas: [], cargandoEscuelas: false }, false, 'cargarEscuelas/sinSesion');
+          return;
+        }
         try {
-          const snap = await getDocs(collection(db, 'escuelas'));
-          const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          // Dos consultas: escuelas propias (docenteId == yo) y escuelas
+          // compartidas conmigo (mi correo está en colaboradores). Firestore
+          // no soporta OR entre campos distintos, así que se combinan aquí.
+          const qPropias      = query(collection(db, 'escuelas'), where('docenteId', '==', uid));
+          const qCompartidas  = email
+            ? query(collection(db, 'escuelas'), where('colaboradores', 'array-contains', email))
+            : null;
+
+          const [snapPropias, snapCompartidas] = await Promise.all([
+            getDocs(qPropias),
+            qCompartidas ? getDocs(qCompartidas) : Promise.resolve({ docs: [] }),
+          ]);
+
+          const mapa = new Map();
+          snapPropias.docs.forEach(d => mapa.set(d.id, { id: d.id, ...d.data(), _propia: true }));
+          snapCompartidas.docs.forEach(d => {
+            if (!mapa.has(d.id)) mapa.set(d.id, { id: d.id, ...d.data(), _propia: false });
+          });
+
+          const data = Array.from(mapa.values()).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+          // Si NO tengo ninguna escuela (propia ni compartida) Y la colección
+          // completa está vacía (proyecto recién creado, nadie ha sembrado
+          // nada todavía), sembramos los datos iniciales como propios míos.
+          // Si la colección ya tiene datos de OTRO dueño, NO se re-siembra —
+          // esas escuelas simplemente no son mías y no debo verlas.
           if (data.length === 0) {
-            // Primera vez que corre esta migración en el proyecto — puede que
-            // Gamificación ya la haya corrido antes; si no, la sembramos aquí.
-            await get().migrarEscuelasIniciales();
-          } else {
-            set(
-              { escuelas: data.sort((a, b) => a.nombre.localeCompare(b.nombre)), cargandoEscuelas: false },
-              false,
-              'cargarEscuelas/done',
-            );
+            const snapTotal = await getDocs(collection(db, 'escuelas'));
+            if (snapTotal.empty) {
+              await get().migrarEscuelasIniciales();
+              return;
+            }
           }
+
+          set({ escuelas: data, cargandoEscuelas: false }, false, 'cargarEscuelas/done');
         } catch (e) {
           console.error('Error cargando escuelas:', e);
           set({ cargandoEscuelas: false }, false, 'cargarEscuelas/error');
@@ -186,11 +216,12 @@ export const useAuraStore = create(
       },
 
       migrarEscuelasIniciales: async () => {
+        const uid = auth.currentUser?.uid;
         try {
           for (const escuela of ESCUELAS_INICIALES) {
             await setDoc(
               doc(db, 'escuelas', escuela.id),
-              { nombre: escuela.nombre, grupos: escuela.grupos },
+              { nombre: escuela.nombre, grupos: escuela.grupos, docenteId: uid || null, colaboradores: [] },
               { merge: true },
             );
           }
@@ -200,11 +231,80 @@ export const useAuraStore = create(
         await get().cargarEscuelas();
       },
 
+      // ── Reclamar escuelas "huérfanas" (sin dueño) ─────────
+      // Cubre la transición: escuelas creadas ANTES de este cambio no tienen
+      // docenteId. Cualquier docente sin escuelas propias puede reclamarlas
+      // — pensado para un caso de uso puntual (migración inicial), no para
+      // uso recurrente. También reclama los alumnos ya existentes de esas
+      // escuelas, para que las reglas de seguridad puedan verificar dueño
+      // directo en 'alumnos' sin tener que consultar la escuela por separado.
+      reclamarEscuelasSinDueno: async () => {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return { ok: false, error: 'No hay sesión activa.' };
+        try {
+          const snapEsc   = await getDocs(collection(db, 'escuelas'));
+          const huerfanas = snapEsc.docs.filter(d => !d.data().docenteId);
+          if (!huerfanas.length) return { ok: false, error: 'No hay escuelas sin dueño para reclamar.' };
+
+          const batch = writeBatch(db);
+          huerfanas.forEach(d => batch.update(doc(db, 'escuelas', d.id), { docenteId: uid, colaboradores: d.data().colaboradores || [] }));
+
+          // Reclamar también los alumnos existentes de esas escuelas
+          for (const escDoc of huerfanas) {
+            const qAlum     = query(collection(db, 'alumnos'), where('escuelaId', '==', escDoc.id));
+            const snapAlum  = await getDocs(qAlum);
+            snapAlum.docs.forEach(a => {
+              if (!a.data().docenteId) batch.update(doc(db, 'alumnos', a.id), { docenteId: uid });
+            });
+          }
+
+          await batch.commit();
+          await get().cargarEscuelas();
+          return { ok: true, reclamadas: huerfanas.length };
+        } catch (e) {
+          console.error('Error reclamando escuelas:', e);
+          return { ok: false, error: 'Error al reclamar escuelas. Si son muchos alumnos, puede exceder el límite de 500 operaciones por lote — avísame si pasa esto.' };
+        }
+      },
+
+      // ── Compartir escuela con un colega (por correo) ──────
+      compartirEscuela: async (escuelaId, colaboradoresActuales, emailColega) => {
+        const limpio = (emailColega || '').trim().toLowerCase();
+        if (!limpio) return { ok: false, error: 'Escribe un correo válido.' };
+        if ((colaboradoresActuales || []).includes(limpio)) return { ok: false, error: 'Ese colega ya tiene acceso.' };
+        try {
+          await updateDoc(doc(db, 'escuelas', escuelaId), { colaboradores: [...(colaboradoresActuales || []), limpio] });
+          await get().cargarEscuelas();
+          return { ok: true };
+        } catch (e) {
+          console.error('Error compartiendo escuela:', e);
+          return { ok: false, error: 'Error al compartir la escuela.' };
+        }
+      },
+
+      dejarDeCompartir: async (escuelaId, colaboradoresActuales, email) => {
+        try {
+          await updateDoc(doc(db, 'escuelas', escuelaId), { colaboradores: (colaboradoresActuales || []).filter(c => c !== email) });
+          await get().cargarEscuelas();
+          return { ok: true };
+        } catch (e) {
+          console.error('Error quitando colaborador:', e);
+          return { ok: false, error: 'Error al quitar colaborador.' };
+        }
+      },
+
       agregarEscuela: async (nombre) => {
         const nombreLimpio = (nombre || '').trim();
         if (!nombreLimpio) return { ok: false, error: 'Escribe un nombre.' };
+        const uid = auth.currentUser?.uid;
+        if (!uid) return { ok: false, error: 'No hay sesión activa.' };
         try {
-          await addDoc(collection(db, 'escuelas'), { nombre: nombreLimpio, grupos: [] });
+          await addDoc(collection(db, 'escuelas'), {
+            nombre:        nombreLimpio,
+            grupos:        [],
+            docenteId:     uid,
+            colaboradores: [],
+          });
           await get().cargarEscuelas();
           return { ok: true };
         } catch (e) {
@@ -320,12 +420,14 @@ export const useAuraStore = create(
         if (!escuelaSeleccionada || !grupoSeleccionado) {
           return { ok: false, error: 'Selecciona escuela y grupo primero.' };
         }
+        const uid = auth.currentUser?.uid;
         try {
           await addDoc(collection(db, 'alumnos'), {
             nombre:         nombreLimpio,
             escuelaId:      escuelaSeleccionada.id,
             escuelaNombre:  escuelaSeleccionada.nombre,
             grupo:          grupoSeleccionado,
+            docenteId:      uid || null, // dueño directo — usado por las reglas de seguridad
             puntosClase:    0,
             puntos:         0,
             racha:          0,
@@ -349,6 +451,7 @@ export const useAuraStore = create(
         }
         const limpios = (nombres || []).map(n => (n || '').trim()).filter(Boolean);
         if (!limpios.length) return { ok: false, error: 'No se detectaron nombres válidos.' };
+        const uid = auth.currentUser?.uid;
         try {
           const batch = writeBatch(db);
           limpios.forEach(nombre => {
@@ -358,6 +461,7 @@ export const useAuraStore = create(
               escuelaId:      escuelaSeleccionada.id,
               escuelaNombre:  escuelaSeleccionada.nombre,
               grupo:          grupoSeleccionado,
+              docenteId:      uid || null,
               puntosClase:    0,
               puntos:         0,
               racha:          0,
@@ -388,6 +492,28 @@ export const useAuraStore = create(
         } catch (e) {
           console.error('Error eliminando alumno:', e);
           return { ok: false, error: 'Error de conexión al eliminar alumno.' };
+        }
+      },
+
+      // ── Eliminar TODOS los alumnos del grupo actual ───────
+      // La doble advertencia (dos confirmaciones) vive en App.jsx, aquí solo
+      // se ejecuta la operación una vez confirmada.
+      eliminarTodosLosAlumnos: async () => {
+        const { escuelaSeleccionada, grupoSeleccionado, alumnos, cargarAlumnos } = get();
+        if (!escuelaSeleccionada || !grupoSeleccionado) {
+          return { ok: false, error: 'Selecciona escuela y grupo primero.' };
+        }
+        if (!alumnos.length) return { ok: false, error: 'No hay alumnos que eliminar en este grupo.' };
+        try {
+          const batch = writeBatch(db);
+          alumnos.forEach(a => batch.delete(doc(db, 'alumnos', a.id)));
+          await batch.commit();
+          set({ alumnos: [] }, false, 'eliminarTodosLosAlumnos/optimista');
+          await cargarAlumnos();
+          return { ok: true, eliminados: alumnos.length };
+        } catch (e) {
+          console.error('Error eliminando todos los alumnos:', e);
+          return { ok: false, error: 'Error de conexión al eliminar alumnos.' };
         }
       },
 
