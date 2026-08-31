@@ -110,6 +110,7 @@ function App() {
   const agregarAlumno         = useAuraStore(s => s.agregarAlumno);
   const agregarAlumnosMasivo  = useAuraStore(s => s.agregarAlumnosMasivo);
   const eliminarAlumno        = useAuraStore(s => s.eliminarAlumno);
+  const eliminarTodosLosAlumnos = useAuraStore(s => s.eliminarTodosLosAlumnos);
   const cargarEscuelas        = useAuraStore(s => s.cargarEscuelas);
   const agregarEscuela        = useAuraStore(s => s.agregarEscuela);
   const eliminarEscuela       = useAuraStore(s => s.eliminarEscuela);
@@ -117,6 +118,9 @@ function App() {
   const agregarGrupo          = useAuraStore(s => s.agregarGrupo);
   const eliminarGrupo         = useAuraStore(s => s.eliminarGrupo);
   const renombrarGrupo        = useAuraStore(s => s.renombrarGrupo);
+  const reclamarEscuelasSinDueno = useAuraStore(s => s.reclamarEscuelasSinDueno);
+  const compartirEscuela      = useAuraStore(s => s.compartirEscuela);
+  const dejarDeCompartir      = useAuraStore(s => s.dejarDeCompartir);
   const toggleModoEdicion     = useAuraStore(s => s.toggleModoEdicion);
   const ajustarPuntosManuales = useAuraStore(s => s.ajustarPuntosManuales);
   const deshacerUltimaAccion  = useAuraStore(s => s.deshacerUltimaAccion);
@@ -136,6 +140,8 @@ function App() {
   const [textoMasivoAlumnos, setTextoMasivoAlumnos] = React.useState('');
   const [agregandoMasivo, setAgregandoMasivo]       = React.useState(false);
   const [cargandoArchivoAlumnos, setCargandoArchivoAlumnos] = React.useState(false);
+  const [modoGestionAlumnos, setModoGestionAlumnos] = React.useState(false);
+  const [nuevoColegaEmail, setNuevoColegaEmail]      = React.useState({});
   const [mostrarAdminEscuelas, setMostrarAdminEscuelas] = React.useState(false);
   const [nuevaEscuelaNombre, setNuevaEscuelaNombre]     = React.useState('');
 
@@ -185,6 +191,50 @@ function App() {
     if (!nuevo || nuevo.trim() === grupo) return;
     const resultado = await renombrarGrupo(escuela.id, escuela.grupos || [], grupo, nuevo);
     if (!resultado.ok) alert(resultado.error || 'No se pudo renombrar el grupo.');
+  };
+
+  const handleReclamarEscuelas = async () => {
+    if (!window.confirm('Esto asignará a tu cuenta cualquier escuela que no tenga dueño todavía (junto con sus alumnos). ¿Continuar?')) return;
+    const resultado = await reclamarEscuelasSinDueno();
+    if (resultado.ok) alert(`✅ ${resultado.reclamadas} escuela(s) asignadas a tu cuenta.`);
+    else alert(resultado.error || 'No se pudo completar el reclamo.');
+  };
+
+  const handleCompartirEscuela = async (escuela) => {
+    const email = (nuevoColegaEmail[escuela.id] || '').trim();
+    if (!email) return;
+    const resultado = await compartirEscuela(escuela.id, escuela.colaboradores || [], email);
+    if (resultado.ok) setNuevoColegaEmail(prev => ({ ...prev, [escuela.id]: '' }));
+    else alert(resultado.error || 'No se pudo compartir la escuela.');
+  };
+
+  const handleQuitarColaborador = async (escuela, email) => {
+    if (!window.confirm(`¿Quitarle acceso a ${email} a esta escuela?`)) return;
+    const resultado = await dejarDeCompartir(escuela.id, escuela.colaboradores || [], email);
+    if (!resultado.ok) alert(resultado.error || 'No se pudo quitar el acceso.');
+  };
+
+  // ── Gestionar Alumnos y Editar Puntos son EXCLUYENTES entre sí,
+  // para no mezclar en la misma pantalla "agregar/quitar" con "sumar/restar
+  // puntos" — confundía a quien usa la plataforma por primera vez.
+  const toggleGestionAlumnos = () => {
+    setModoGestionAlumnos(prev => {
+      if (!prev && modoEdicion) toggleModoEdicion();
+      return !prev;
+    });
+  };
+  const toggleEdicionPuntos = () => {
+    if (!modoEdicion && modoGestionAlumnos) setModoGestionAlumnos(false);
+    toggleModoEdicion();
+  };
+
+  const handleEliminarTodosAlumnos = async () => {
+    if (!alumnos.length) { alert('No hay alumnos en este grupo.'); return; }
+    if (!window.confirm(`⚠️ ¿Seguro que quieres ELIMINAR A LOS ${alumnos.length} ALUMNOS del grupo ${grupoSeleccionado}? Esta acción no se puede deshacer.`)) return;
+    if (!window.confirm('🚨 Confirmación final: se borrarán TODOS los alumnos de este grupo de forma permanente. ¿Proceder?')) return;
+    const resultado = await eliminarTodosLosAlumnos();
+    if (resultado.ok) alert(`${resultado.eliminados} alumno(s) eliminados.`);
+    else alert(resultado.error || 'No se pudo completar la eliminación.');
   };
 
   const handleAgregarAlumno = async () => {
@@ -383,40 +433,88 @@ function App() {
                       </button>
                     </div>
 
+                    <button
+                      onClick={handleReclamarEscuelas}
+                      style={{ width: '100%', marginBottom: 14, padding: '0.6rem 1rem', background: 'rgba(255,193,7,0.12)', color: '#FFD54F', border: '1px solid rgba(255,193,7,0.4)', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+                    >
+                      🔓 Reclamar escuelas sin dueño (migración inicial)
+                    </button>
+
                     {escuelas.map(escuela => (
                       <div key={escuela.id} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '1rem', marginBottom: '0.8rem', border: '1px solid rgba(255,255,255,0.1)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
-                          <span style={{ color: 'white', fontWeight: 600, fontSize: '1rem' }}>{escuela.nombre}</span>
-                          <div style={{ display: 'flex', gap: '0.4rem' }}>
-                            <button onClick={() => handleRenombrarEscuela(escuela)}
-                              style={{ padding: '0.3rem 0.7rem', background: '#2196F3', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
-                              ✏️ Renombrar
-                            </button>
-                            <button onClick={() => handleAgregarGrupo(escuela)}
-                              style={{ padding: '0.3rem 0.7rem', background: '#4CAF50', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
-                              ➕ Grupo
-                            </button>
-                            <button onClick={() => handleEliminarEscuela(escuela)}
-                              style={{ padding: '0.3rem 0.7rem', background: '#f44336', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
-                              🗑️
-                            </button>
-                          </div>
+                          <span style={{ color: 'white', fontWeight: 600, fontSize: '1rem' }}>
+                            {escuela.nombre} {!escuela._propia && <span style={{ fontSize: '0.7rem', color: '#90CAF9', fontWeight: 400 }}>(compartida contigo)</span>}
+                          </span>
+                          {escuela._propia && (
+                            <div style={{ display: 'flex', gap: '0.4rem' }}>
+                              <button onClick={() => handleRenombrarEscuela(escuela)}
+                                style={{ padding: '0.3rem 0.7rem', background: '#2196F3', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
+                                ✏️ Renombrar
+                              </button>
+                              <button onClick={() => handleAgregarGrupo(escuela)}
+                                style={{ padding: '0.3rem 0.7rem', background: '#4CAF50', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
+                                ➕ Grupo
+                              </button>
+                              <button onClick={() => handleEliminarEscuela(escuela)}
+                                style={{ padding: '0.3rem 0.7rem', background: '#f44336', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.8rem' }}>
+                                🗑️
+                              </button>
+                            </div>
+                          )}
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                           {(escuela.grupos || []).map(grupo => (
                             <div key={grupo} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(255,255,255,0.1)', borderRadius: 20, padding: '0.2rem 0.6rem' }}>
                               <span style={{ color: 'white', fontSize: '0.85rem' }}>{grupo}</span>
-                              <button onClick={() => handleRenombrarGrupo(escuela, grupo)}
-                                style={{ background: 'none', border: 'none', color: '#90CAF9', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}>
-                                ✏️
-                              </button>
-                              <button onClick={() => handleEliminarGrupo(escuela, grupo)}
-                                style={{ background: 'none', border: 'none', color: '#EF9A9A', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}>
-                                ✕
-                              </button>
+                              {escuela._propia && (
+                                <>
+                                  <button onClick={() => handleRenombrarGrupo(escuela, grupo)}
+                                    style={{ background: 'none', border: 'none', color: '#90CAF9', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}>
+                                    ✏️
+                                  </button>
+                                  <button onClick={() => handleEliminarGrupo(escuela, grupo)}
+                                    style={{ background: 'none', border: 'none', color: '#EF9A9A', cursor: 'pointer', fontSize: '0.75rem', padding: 0 }}>
+                                    ✕
+                                  </button>
+                                </>
+                              )}
                             </div>
                           ))}
                         </div>
+
+                        {/* Compartir con colega — solo el dueño puede gestionar esto */}
+                        {escuela._propia && (
+                          <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                            <p style={{ margin: '0 0 6px', fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>
+                              👥 Compartir con un colega (verá y podrá editar esta escuela):
+                            </p>
+                            {(escuela.colaboradores || []).length > 0 && (
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                                {escuela.colaboradores.map(email => (
+                                  <span key={email} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(33,150,243,0.12)', border: '1px solid rgba(33,150,243,0.3)', borderRadius: 20, padding: '3px 10px', fontSize: '0.75rem', color: '#90CAF9' }}>
+                                    {email}
+                                    <span onClick={() => handleQuitarColaborador(escuela, email)} style={{ cursor: 'pointer', color: '#EF9A9A' }}>✕</span>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <input
+                                type="email"
+                                placeholder="correo@jaliscoedu.mx"
+                                value={nuevoColegaEmail[escuela.id] || ''}
+                                onChange={(e) => setNuevoColegaEmail(prev => ({ ...prev, [escuela.id]: e.target.value }))}
+                                onKeyDown={(e) => e.key === 'Enter' && handleCompartirEscuela(escuela)}
+                                style={{ flex: 1, padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(0,0,0,0.35)', color: '#fff', fontSize: 12 }}
+                              />
+                              <button onClick={() => handleCompartirEscuela(escuela)}
+                                style={{ padding: '6px 12px', background: '#2196F3', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                Compartir
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </motion.div>
@@ -468,15 +566,26 @@ function App() {
               <div className="teacher-controls ios-glass">
                 <div className="tc-header">
                   <span className="tc-title">Controles de Maestro</span>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                     <button
                       onClick={() => setMostrarCierre(true)}
                       style={{ background: 'rgba(10,132,255,0.15)', color: '#0a84ff', border: '1px solid rgba(10,132,255,0.4)', borderRadius: 20, padding: '6px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}
                     >
                       📋 Cerrar Sesión
                     </button>
-                    <button className={`tc-toggle ${modoEdicion ? 'active' : ''}`} onClick={toggleModoEdicion}>
-                      {modoEdicion ? 'Terminar Edición' : 'Editar Puntos'}
+                    <button
+                      onClick={toggleGestionAlumnos}
+                      style={{
+                        borderRadius: 20, padding: '6px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                        border: `1px solid ${modoGestionAlumnos ? '#4CAF50' : 'rgba(255,255,255,0.2)'}`,
+                        background: modoGestionAlumnos ? 'rgba(76,175,80,0.18)' : 'transparent',
+                        color: modoGestionAlumnos ? '#4CAF50' : '#fff',
+                      }}
+                    >
+                      {modoGestionAlumnos ? '✅ Listo' : '➕ Gestionar Alumnos'}
+                    </button>
+                    <button className={`tc-toggle ${modoEdicion ? 'active' : ''}`} onClick={toggleEdicionPuntos}>
+                      {modoEdicion ? 'Terminar Edición' : '✏️ Editar Puntos'}
                     </button>
                   </div>
                 </div>
@@ -492,16 +601,16 @@ function App() {
                 </AnimatePresence>
               </div>
 
-              {/* Agregar alumnos — visible en modo edición: individual, pegar lista, o archivo */}
+              {/* Agregar/quitar alumnos — panel propio, separado de Editar Puntos */}
               <AnimatePresence>
-                {modoEdicion && (
+                {modoGestionAlumnos && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                     className="teacher-controls ios-glass"
                     style={{ marginTop: 8, overflow: 'hidden' }}
                   >
                     {/* Pestañas de método */}
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                       {[
                         { id: 'individual', label: '📝 Uno por uno' },
                         { id: 'pegar',      label: '📋 Pegar lista' },
@@ -590,6 +699,21 @@ function App() {
                         </label>
                       </div>
                     )}
+
+                    {/* Zona de peligro — separada visualmente, requiere doble confirmación */}
+                    <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid rgba(255,69,58,0.2)' }}>
+                      <button
+                        onClick={handleEliminarTodosAlumnos}
+                        disabled={!alumnos.length}
+                        style={{
+                          background: 'rgba(255,69,58,0.1)', border: '1px solid rgba(255,69,58,0.35)', borderRadius: 10,
+                          padding: '9px 16px', color: '#EF5350', fontWeight: 700, fontSize: 12.5, cursor: alumnos.length ? 'pointer' : 'not-allowed',
+                          opacity: alumnos.length ? 1 : 0.4,
+                        }}
+                      >
+                        🗑️ Eliminar TODOS los alumnos de este grupo ({alumnos.length})
+                      </button>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -600,7 +724,7 @@ function App() {
                   <button
                     key={a.id}
                     className={`ios-list-item alumno ${alumnoSeleccionado?.id === a.id ? 'active' : ''}`}
-                    onClick={() => !modoEdicion && seleccionarAlumno(a)}
+                    onClick={() => !modoEdicion && !modoGestionAlumnos && seleccionarAlumno(a)}
                   >
                     <div className="alumno-avatar">{a.nombre.charAt(0)}</div>
                     <div className="item-content">
@@ -611,13 +735,14 @@ function App() {
                       <div className="edit-xp-buttons" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <div className="xp-btn minus" onClick={(e) => { e.stopPropagation(); ajustarPuntosManuales(a, -5); }}>-5</div>
                         <div className="xp-btn plus"  onClick={(e) => { e.stopPropagation(); ajustarPuntosManuales(a,  5); }}>+5</div>
-                        <div
-                          onClick={(e) => { e.stopPropagation(); handleEliminarAlumno(a); }}
-                          title="Eliminar alumno"
-                          style={{ marginLeft: 6, color: '#EF5350', cursor: 'pointer', fontSize: 16, padding: '2px 6px' }}
-                        >
-                          🗑️
-                        </div>
+                      </div>
+                    ) : modoGestionAlumnos ? (
+                      <div
+                        onClick={(e) => { e.stopPropagation(); handleEliminarAlumno(a); }}
+                        title="Eliminar alumno"
+                        style={{ color: '#EF5350', cursor: 'pointer', fontSize: 18, padding: '4px 10px', border: '1px solid rgba(239,83,80,0.3)', borderRadius: 8 }}
+                      >
+                        🗑️ Quitar
                       </div>
                     ) : (
                       <span className="action-text">{vista === 'estadisticas' ? 'Ver Métricas ›' : 'Evaluar ›'}</span>
